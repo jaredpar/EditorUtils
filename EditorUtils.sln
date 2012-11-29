@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EditorUtils", "EditorUtils\EditorUtils.csproj", "{FB418222-C105-4942-8EEB-832DDCFFD89D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EditorUtils", "Src\EditorUtils\EditorUtils.csproj", "{FB418222-C105-4942-8EEB-832DDCFFD89D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EditorUtilsTest", "EditorUtilsTest\EditorUtilsTest.csproj", "{BAED09B7-25D9-4DD8-8558-BAC9730BA3F3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EditorUtilsTest", "Test\EditorUtilsTest\EditorUtilsTest.csproj", "{BAED09B7-25D9-4DD8-8558-BAC9730BA3F3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

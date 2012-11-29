@@ -128,7 +128,7 @@
     <Compile Include="VersioningTest.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\EditorUtils\EditorUtils.csproj">
+    <ProjectReference Include="..\..\Src\EditorUtils\EditorUtils.csproj">
       <Project>{FB418222-C105-4942-8EEB-832DDCFFD89D}</Project>
       <Name>EditorUtils</Name>
     </ProjectReference>
