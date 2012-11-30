@@ -158,11 +158,6 @@ namespace WordUnderCaret
 
         #region AsyncTaggerSource
 
-        public override int ChunkCount
-        {
-            get { return 5; }
-        }
-
         protected override bool TryGetTagsPrompt(SnapshotSpan span, out IEnumerable<ITagSpan<TextMarkerTag>> tags)
         {
             if (!Enabled)
