@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EditorUtilsTest", "Test\Edi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WordUnderCaret", "Test\WordUnderCaret\WordUnderCaret.csproj", "{620BEC49-DF9C-406A-9492-BD157BAB95BC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cats", "Test\Cats\Cats.csproj", "{1B8425A4-6DBB-4227-92E7-EC8CC379DA63}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -25,6 +27,10 @@ Global
 		{620BEC49-DF9C-406A-9492-BD157BAB95BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{620BEC49-DF9C-406A-9492-BD157BAB95BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{620BEC49-DF9C-406A-9492-BD157BAB95BC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1B8425A4-6DBB-4227-92E7-EC8CC379DA63}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1B8425A4-6DBB-4227-92E7-EC8CC379DA63}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1B8425A4-6DBB-4227-92E7-EC8CC379DA63}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1B8425A4-6DBB-4227-92E7-EC8CC379DA63}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
