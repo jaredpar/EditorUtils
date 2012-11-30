@@ -12,9 +12,9 @@ namespace EditorUtils
         /// for MEF components
         /// </summary>
 #if DEBUG
-        internal const string AssemblyVersion = "99.0.0.7";
+        internal const string AssemblyVersion = "99.0.0.0";
 #else
-        internal const string AssemblyVersion = "1.0.0.7";
+        internal const string AssemblyVersion = "1.0.0.8";
 #endif
 
         /// <summary>
