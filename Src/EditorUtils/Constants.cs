@@ -11,7 +11,11 @@ namespace EditorUtils
         /// The uniqueness of this name is necessary because we include it in the ContractName we export
         /// for MEF components
         /// </summary>
+#if DEBUG
+        internal const string AssemblyVersion = "99.0.0.7";
+#else
         internal const string AssemblyVersion = "1.0.0.7";
+#endif
 
         /// <summary>
         /// Standard delay for asynchronous taggers

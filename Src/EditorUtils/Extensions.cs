@@ -50,6 +50,11 @@ namespace EditorUtils
 
         #region ITextSnapshot
 
+        public static char GetChar(this ITextSnapshot snapshot, int position)
+        {
+            return GetPoint(snapshot, position).GetChar();
+        }
+
         /// <summary>
         /// Get the SnapshotSpan for the extent of the entire ITextSnapshot
         /// </summary>
