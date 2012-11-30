@@ -119,10 +119,19 @@ namespace EditorUtils.UnitTest
         }
 
         /// <summary>
-        /// Make sure that after an ITextBuffer edit we cache only the new data
+        /// When an edit occurs the CachedSpan should include the requests that existed before
+        /// the edit.  The editor does tagging ideally on a line by line basis.  When an edit occurs
+        /// in an ideal scenario it will only ask for tag information for that particular line and
+        /// will maintain the cached values for the other lines.
+        /// 
+        /// It will do this unless it is explicitly told that those lines changed.  It is not
+        /// the job of the AsyncTagger base to do this.  Instead it is the job of the actually
+        /// IAsyncTaggerSource to raise the Changed event if this is necessary.  Hence we must
+        /// maintain the CachedSpan over the previously produced tags because we are still 
+        /// responsible for them
         /// </summary>
         [Fact]
-        public void GetTags_ResetCacheAfterEdit()
+        public void GetTags_ExtendCacheAfterEdit()
         {
             Create("cat", "dog", "bear");
             var span = _textBuffer.GetSpan(0, 1);
@@ -130,7 +139,8 @@ namespace EditorUtils.UnitTest
             _basicTagger.GetTags(_textBuffer.GetLine(0).ExtentIncludingLineBreak).Single();
             _textBuffer.Replace(new Span(0, 1), "b");
             _basicTagger.GetTags(_textBuffer.GetLine(1).ExtentIncludingLineBreak).Single();
-            Assert.Equal(_textBuffer.GetLine(1).ExtentIncludingLineBreak, _basicTagger.CachedRequestSpan.Value);
+            var lineRange = _textBuffer.GetLineRange(0, 1);
+            Assert.Equal(lineRange.ExtentIncludingLineBreak, _basicTagger.CachedRequestSpan.Value);
         }
 
         /// <summary>

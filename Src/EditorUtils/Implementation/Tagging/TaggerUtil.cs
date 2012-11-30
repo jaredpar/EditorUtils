@@ -23,21 +23,42 @@ namespace EditorUtils.Implementation.Tagging
         /// </summary>
         internal static SnapshotSpan AdjustRequestedSpan(SnapshotSpan? cachedRequestSpan, SnapshotSpan requestSpan)
         {
-            if (cachedRequestSpan.HasValue)
-            {
-                if (cachedRequestSpan.Value.Snapshot == requestSpan.Snapshot)
-                {
-                    return cachedRequestSpan.Value.CreateOverarching(requestSpan);
-                }
-                else
-                {
-                    return requestSpan;
-                }
-            }
-            else
+            if (!cachedRequestSpan.HasValue)
             {
                 return requestSpan;
             }
+
+            var cachedSnapshot = cachedRequestSpan.Value.Snapshot;
+            var requestSnapshot = requestSpan.Snapshot;
+
+            if (cachedSnapshot == requestSnapshot)
+            {
+                // Same snapshot so we just need the overarching SnapshotSpan
+                return cachedRequestSpan.Value.CreateOverarching(requestSpan);
+            }
+
+            if (cachedSnapshot.Version.VersionNumber < requestSnapshot.Version.VersionNumber)
+            {
+                // Request for a span on a new ITextSnapshot.  Translate the old SnapshotSpan
+                // to the new ITextSnapshot and get the overarching value 
+                var trackingSpan = cachedSnapshot.CreateTrackingSpan(cachedRequestSpan.Value.Span, SpanTrackingMode.EdgeInclusive);
+                var traslatedSpan = trackingSpan.GetSpanSafe(requestSnapshot);
+                if (traslatedSpan.HasValue)
+                {
+                    return traslatedSpan.Value.CreateOverarching(requestSpan);
+                }
+
+                // If we can't translate the previous SnapshotSpan forward then simply use the 
+                // entire ITextSnapshot.  This is a correct value, it just has the potential for
+                // some inefficiencies
+                return requestSnapshot.GetExtent();
+            }
+
+            // It's a request for a value in the past.  This is a very rare scenario that is almost
+            // always followed by a request for a value on the current snapshot.  Just return the 
+            // entire ITextSnapshot.  This is a correct value, it just has the potential for
+            // some inefficiencies 
+            return requestSpan.Snapshot.GetExtent();
         }
     }
 }
