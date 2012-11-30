@@ -1,1 +1,1 @@
-Sample gallery for Visual Studio 
+Editor Utilities Library
