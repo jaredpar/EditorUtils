@@ -69,8 +69,6 @@
     <ProjectReference Include="..\..\Src\EditorUtils\EditorUtils.csproj">
       <Project>{FB418222-C105-4942-8EEB-832DDCFFD89D}</Project>
       <Name>EditorUtils</Name>
-      <IncludeOutputGroupsInVSIX>BuiltProjectOutputGroup%3bBuiltProjectOutputGroupDependencies%3bGetCopyToOutputDirectoryItems%3b</IncludeOutputGroupsInVSIX>
-      <IncludeOutputGroupsInVSIXLocalOnly>DebugSymbolsProjectOutputGroup%3b</IncludeOutputGroupsInVSIXLocalOnly>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

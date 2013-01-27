@@ -68,3 +68,6 @@ FSharp.Core.dll
 
 # Profiling Output
 *.vsp
+
+# Hacky build items
+EditorUtilsVsix.vsix
