@@ -13,6 +13,17 @@ namespace EditorUtils.Implementation.Tagging
     internal sealed class AsyncTagger<TData, TTag> : ITagger<TTag>, IDisposable
         where TTag : ITag
     {
+        #region CompleteReason
+
+        private enum CompleteReason
+        {
+            Finished,
+            Cancelled,
+            Error
+        }
+
+        #endregion
+
         #region BackgroundCacheData
 
         internal struct BackgroundCacheData
@@ -183,35 +194,36 @@ namespace EditorUtils.Implementation.Tagging
 
         internal struct AsyncBackgroundRequest
         {
-            internal readonly SnapshotLineRange LineRange;
+            internal readonly ITextSnapshot Snapshot;
             internal readonly CancellationTokenSource CancellationTokenSource;
-            internal readonly SingleItemQueue<SnapshotLineRange> PriorityLineRangeQueue;
+            internal readonly ThreadedLineRangeStack ThreadedLineRangeStack;
             internal readonly Task Task;
 
-            internal SnapshotSpan Span
-            {
-                get { return LineRange.ExtentIncludingLineBreak; }
-            }
-
-            internal ITextSnapshot Snapshot
-            {
-                get { return LineRange.Snapshot; }
-            }
-
             internal AsyncBackgroundRequest(
-                SnapshotLineRange lineRange,
+                ITextSnapshot snapshot,
                 CancellationTokenSource cancellationTokenSource,
-                SingleItemQueue<SnapshotLineRange> queue,
+                ThreadedLineRangeStack threadedLineRangeStack,
                 Task task)
             {
-                LineRange = lineRange;
+                Snapshot = snapshot;
                 CancellationTokenSource = cancellationTokenSource;
-                PriorityLineRangeQueue = queue;
+                ThreadedLineRangeStack = threadedLineRangeStack;
                 Task = task;
             }
         }
 
         #endregion
+
+
+        /// This number was chosen virtually at random.  In extremely large files it's legal
+        /// to ask for the tags for the entire file (and sadly very often done).  When this 
+        /// happens even an async tagger breaks down a bit.  It won't cause the UI to hang but
+        /// it will appear the tagger is broken because it's not giving back any data.  So 
+        /// we break the non-visible sections into chunks and process the chunks one at a time
+        ///
+        /// Note: Even though a section is not visible we must still provide tags.  Gutter 
+        /// margins and such still need to see tags for non-visible portions of the buffer
+        internal const int DefaultChunkCount = 500;
 
         /// <summary>
         /// Cached empty tag list
@@ -238,6 +250,8 @@ namespace EditorUtils.Implementation.Tagging
         /// </summary>
         private SnapshotSpan? _cachedRequestSpan = null;
 
+        private int _chunkCount = DefaultChunkCount;
+
         /// <summary>
         /// The SnapshotSpan for which we have given out tags
         /// </summary>
@@ -263,6 +277,12 @@ namespace EditorUtils.Implementation.Tagging
         {
             get { return _asyncBackgroundRequest; }
             set { _asyncBackgroundRequest = value; }
+        }
+
+        internal int ChunkCount
+        {
+            get { return _chunkCount; }
+            set { _chunkCount = value; }
         }
 
         internal AsyncTagger(IAsyncTaggerSource<TData, TTag> asyncTaggerSource)
@@ -297,7 +317,7 @@ namespace EditorUtils.Implementation.Tagging
 
             if (trackingTagList.Count != tagList.Count)
             {
-               return true;
+                return true;
             }
 
             var trackingSet = trackingTagList
@@ -489,7 +509,8 @@ namespace EditorUtils.Implementation.Tagging
         }
 
         /// <summary>
-        /// Get the tags for the specified SnapshotSpan in a background task
+        /// Get the tags for the specified SnapshotSpan in a background task.  If there are outstanding
+        /// requests for SnapshotSpan values then this one will take priority over those 
         /// </summary>
         private void GetTagsInBackground(SnapshotSpan span)
         {
@@ -499,52 +520,61 @@ namespace EditorUtils.Implementation.Tagging
                 return;
             }
 
-            if (_asyncBackgroundRequest.HasValue)
-            {
-                var asyncBackgroundRequest = _asyncBackgroundRequest.Value;
-
-                // Don't spawn a new task if the existing one is a superset of the current request
-                if (asyncBackgroundRequest.Span.Snapshot == span.Snapshot &&
-                    asyncBackgroundRequest.Span.Contains(span))
-                {
-                    return;
-                }
-
-                CancelAsyncBackgroundRequest();
-            }
-
             // Our caching and partitioning of data is all done on a line range
             // basis.  Just expand the requested SnapshotSpan to the encompassing
             // SnaphotlineRange
             var lineRange = SnapshotLineRange.CreateForSpan(span);
             span = lineRange.ExtentIncludingLineBreak;
 
+            // If there is an existing background request then just enqueue our data
+            // onto this request if it's on the same ITextSnapshot.  If they are on
+            // different ITextSnapshot values then cancel the request and start a 
+            // new one 
+            if (_asyncBackgroundRequest.HasValue)
+            {
+                var asyncBackgroundRequest = _asyncBackgroundRequest.Value;
+                if (asyncBackgroundRequest.Snapshot == span.Snapshot)
+                {
+                    EditorUtilsTrace.TraceInfo("AsyncTagger Background Existing {0} - {1}", lineRange.StartLineNumber, lineRange.LastLineNumber);
+                    asyncBackgroundRequest.ThreadedLineRangeStack.Push(lineRange);
+                    return;
+                }
+
+                CancelAsyncBackgroundRequest();
+            }
+
+            Contract.Assert(!_asyncBackgroundRequest.HasValue);
+            EditorUtilsTrace.TraceInfo("AsyncTagger Background New {0} - {1}", lineRange.StartLineNumber, lineRange.LastLineNumber);
+
             // Create the data which is needed by the background request
             var data = _asyncTaggerSource.GetDataForSpan(span);
             var cancellationTokenSource = new CancellationTokenSource();
             var cancellationToken = cancellationTokenSource.Token;
+            var threadedLineRangeStack = new ThreadedLineRangeStack();
+            threadedLineRangeStack.Push(lineRange);
 
-            // Create the priority queue for visible lines
-            var priorityLineRangeQueue = new SingleItemQueue<SnapshotLineRange>();
+            // If there is an ITextView then make sure it is requested as well.  If the source provides an 
+            // ITextView then it is always prioritized on requests for a new snapshot
             if (_asyncTaggerSource.TextViewOptional != null)
             {
                 var visibleLineRange = _asyncTaggerSource.TextViewOptional.GetVisibleSnapshotLineRange();
                 if (visibleLineRange.HasValue)
                 {
-                    priorityLineRangeQueue.Enqueue(visibleLineRange.Value);
+                    threadedLineRangeStack.Push(visibleLineRange.Value);
                 }
             }
 
-            EditorUtilsTrace.TraceInfo("AsyncTagger Pass Background {0} - {1}", lineRange.StartLineNumber, lineRange.LastLineNumber);
-
             // Function which finally gets the tags.  This is run on a background thread and can
             // throw as the implementor is encouraged to use CancellationToken::ThrowIfCancelled
+            var localAsyncTaggerSource = _asyncTaggerSource;
+            var localChunkCount = _chunkCount;
             Action getTags = () => GetTagsInBackgroundCore(
+                localAsyncTaggerSource,
                 data,
-                lineRange,
-                priorityLineRangeQueue,
+                localChunkCount,
+                threadedLineRangeStack,
                 cancellationToken,
-                () => synchronizationContext.Post(_ => OnGetTagsInBackgroundComplete(cancellationTokenSource), null),
+                (completeReason) => synchronizationContext.Post(_ => OnGetTagsInBackgroundComplete(completeReason, threadedLineRangeStack, cancellationTokenSource), null),
                 (processedLineRange, tagList) => synchronizationContext.Post(_ => OnGetTagsInBackgroundProgress(cancellationTokenSource, processedLineRange, tagList), null));
 
             // Create the Task which will handle the actual gathering of data.  If there is a delay
@@ -564,41 +594,71 @@ namespace EditorUtils.Implementation.Tagging
             }
 
             _asyncBackgroundRequest = new AsyncBackgroundRequest(
-                lineRange,
+                span.Snapshot,
                 cancellationTokenSource,
-                priorityLineRangeQueue,
+                threadedLineRangeStack,
                 endTask);
 
             startTask.Start();
         }
 
         [UsedInBackgroundThread]
-        private void GetTagsInBackgroundCore(
+        private static void GetTagsInBackgroundCore(
+            IAsyncTaggerSource<TData, TTag> asyncTaggerSource,
             TData data,
-            SnapshotLineRange lineRange,
-            SingleItemQueue<SnapshotLineRange> priorityQueue,
+            int chunkCount, 
+            ThreadedLineRangeStack threadedLineRangeStack,
             CancellationToken cancellationToken,
-            Action onComplete,
+            Action<CompleteReason> onComplete,
             Action<SnapshotLineRange, ReadOnlyCollection<ITagSpan<TTag>>> onProgress)
         {
+            CompleteReason completeReason;
             try
             {
-
-                // This number was chosen virtually at random.  In extremely large files it's legal
-                // to ask for the tags for the inter file (and sadly very often done).  When this 
-                // happens even an async tagger breaks down a bit.  It won't cause the UI to hang but
-                // it will appear the tagger is broken because it's not giving back any data.  So 
-                // we break the non-visible sections into chunks and process the chunks one at a time
-                //
-                // Note: Even though a section is not visible we must still provide tags.  Gutter 
-                // margins and such still need to see tags for non-visible portions of the buffer
-                const int chunkCount = 1000;
-
                 // Keep track of the LineRange values which we've already provided tags for.  Don't 
                 // duplicate the work
                 var visited = new LineRangeVisited();
+                var toProcess = new Queue<SnapshotLineRange>();
 
-                // Get the tags for the specified SnapshotSpan
+                // *** This value can be wrong *** 
+                // This is the version number we expect the ThreadedLineRangeStack to have.  It's used
+                // as a hueristic to determine if we should prioritize a value off of the stack or our
+                // local stack.  If it's wrong it means we prioritize the wrong value.  Not a bug it
+                // just changes the order in which values will appear
+                var versionNumber = threadedLineRangeStack.CurrentVersion;
+
+                // Take one value off of the threadedLineRangeStack value.  If the value is bigger than
+                // our chunking increment then we will add the value in chunks to the toProcess queue
+                Action popOne =
+                    () =>
+                    {
+                        var value = threadedLineRangeStack.Pop();
+                        if (!value.HasValue)
+                        {
+                            return;
+                        }
+
+                        versionNumber++;
+                        var lineRange = value.Value;
+                        if (lineRange.Count <= chunkCount)
+                        {
+                            toProcess.Enqueue(lineRange);
+                            return;
+                        }
+
+                        var snapshot = lineRange.Snapshot;
+                        var startLineNumber = lineRange.StartLineNumber;
+                        while (startLineNumber <= lineRange.LastLineNumber)
+                        {
+                            var startLine = snapshot.GetLineFromLineNumber(startLineNumber);
+                            var localRange = SnapshotLineRange.CreateForLineAndMaxCount(startLine, chunkCount);
+                            toProcess.Enqueue(localRange);
+                            startLineNumber += chunkCount;
+                        }
+                    };
+
+                // Get the tags for the specified SnapshotLineRange and return the results.  No chunking is done here,
+                // the data is just directly processed
                 Action<SnapshotLineRange> getTags =
                     tagLineRange =>
                     {
@@ -609,7 +669,7 @@ namespace EditorUtils.Implementation.Tagging
                             try
                             {
                                 tagLineRange = SnapshotLineRange.CreateForLineNumberRange(tagLineRange.Snapshot, unvisited.Value.StartLineNumber, unvisited.Value.LastLineNumber).Value;
-                                tagList = _asyncTaggerSource.GetTagsInBackground(data, tagLineRange.ExtentIncludingLineBreak, cancellationToken);
+                                tagList = asyncTaggerSource.GetTagsInBackground(data, tagLineRange.ExtentIncludingLineBreak, cancellationToken);
                             }
                             catch
                             {
@@ -621,51 +681,53 @@ namespace EditorUtils.Implementation.Tagging
                         }
                     };
 
-                // Get the tags in the specified range in chunks
-                Action getTagsByChunk =
-                    () =>
+                do
+                {
+                    versionNumber = threadedLineRangeStack.CurrentVersion;
+                    popOne();
+
+                    // We've drained both of the sources of input hence we are done
+                    if (0 == toProcess.Count)
                     {
-                        var snapshot = lineRange.Snapshot;
-                        var i = lineRange.StartLineNumber;
+                        break;
+                    }
 
-                        while (i < lineRange.LastLineNumber)
+                    while (0 != toProcess.Count)
+                    {
+                        // If at any point the threadLineRangeStack value changes we consider the new values to have 
+                        // priority over the old ones
+                        if (versionNumber != threadedLineRangeStack.CurrentVersion)
                         {
-
-                            cancellationToken.ThrowIfCancellationRequested();
-                            SnapshotLineRange priorityLineRange;
-                            if (priorityQueue.TryDequeue(out priorityLineRange))
-                            {
-                                getTags(priorityLineRange);
-                                continue;
-                            };
-
-                            var lastLineNumber = Math.Min(lineRange.LastLineNumber, (i + chunkCount));
-                            var chunkLineRange = SnapshotLineRange.CreateForLineNumberRange(snapshot, i, lastLineNumber).Value;
-                            getTags(chunkLineRange);
-                            i += chunkCount + 1;
+                            break;
                         }
-                    };
 
-                // It's common in Visual Studio RTM for the entire SnapshotSpan of the ITextSnapshot
-                // to be requested due to a bug.  In very large files this can cause a significant delay
-                // in showing tags.  So we prioritize the visible lines and then move on to ones which
-                // are not visible
-                if (lineRange.Count > (chunkCount * 2))
-                {
-                    getTagsByChunk();
-                }
-                else
-                {
-                    getTags(lineRange);
-                }
+                        cancellationToken.ThrowIfCancellationRequested();
 
+                        var lineRange = toProcess.Dequeue();
+                        getTags(lineRange);
+                    }
+
+                } while (!cancellationToken.IsCancellationRequested);
+
+                completeReason = cancellationToken.IsCancellationRequested
+                    ? CompleteReason.Cancelled
+                    : CompleteReason.Finished;
             }
-            catch (Exception)
+            catch (OperationCanceledException)
+            {
+                // Don't report cancellation exceptions.  These are thrown during cancellation for fast
+                // break from the operation.  It's really a control flow mechanism
+                completeReason = CompleteReason.Cancelled;
+            }
+            catch (Exception e)
             {
                 // Handle cancellation exceptions and everything else.  Don't want an errant 
                 // exception thrown by the IAsyncTaggerSource to crash the process
+                EditorUtilsTrace.TraceInfo("AsyncTagger Exception in background processing {0}", e);
+                completeReason = CompleteReason.Error;
             }
-            onComplete();
+            
+            onComplete(completeReason);
         }
 
         /// <summary>
@@ -764,13 +826,9 @@ namespace EditorUtils.Implementation.Tagging
 
             var visibleLineRange = _asyncTaggerSource.TextViewOptional.GetVisibleSnapshotLineRange();
             var asyncBackgroundRequest = _asyncBackgroundRequest.Value;
-            if (visibleLineRange.HasValue)
+            if (visibleLineRange.HasValue && visibleLineRange.Value.Snapshot == asyncBackgroundRequest.Snapshot)
             {
-                if (visibleLineRange.Value.Snapshot == asyncBackgroundRequest.Snapshot &&
-                    visibleLineRange.Value.ExtentIncludingLineBreak.IntersectsWith(asyncBackgroundRequest.LineRange.ExtentIncludingLineBreak))
-                {
-                    asyncBackgroundRequest.PriorityLineRangeQueue.Enqueue(visibleLineRange.Value);
-                }
+                GetTagsInBackground(visibleLineRange.Value.Extent);
             }
         }
 
@@ -818,7 +876,7 @@ namespace EditorUtils.Implementation.Tagging
             // more layouts
             if (DidTagsChange(span, tagList))
             {
-               RaiseTagsChanged(span);
+                RaiseTagsChanged(span);
             }
         }
 
@@ -827,7 +885,7 @@ namespace EditorUtils.Implementation.Tagging
         ///
         /// Called on the main thread
         /// </summary>
-        private void OnGetTagsInBackgroundComplete(CancellationTokenSource cancellationTokenSource)
+        private void OnGetTagsInBackgroundComplete(CompleteReason reason, ThreadedLineRangeStack threadedLineRangeStack, CancellationTokenSource cancellationTokenSource)
         {
             if (!IsActiveBackgroundRequest(cancellationTokenSource))
             {
@@ -836,9 +894,33 @@ namespace EditorUtils.Implementation.Tagging
 
             // The request is complete.  Reset the active request information
             CancelAsyncBackgroundRequest();
-            
+
             // Update the tag cache to indicate we are no longer doing any tracking edits
             _tagCache = new TagCache(_tagCache.BackgroundCacheData, null);
+
+            // There is one race condition we must deal with here.  It is possible to get requests in the following
+            // order 
+            //
+            //  - F GetTags span1
+            //  - B Process span1 
+            //  - B Complete span1
+            //  - F GetTags span2 (adds to existing queue)
+            //  - F Get notified that background complete
+            //
+            // The good news is any data that is missed will still be in threadedLineRangeStack.  So we just need to
+            // drain this value and re-request the data 
+            //
+            // We own the stack at this point so just access it directly
+            var stack = threadedLineRangeStack.CurrentStack;
+            if (!stack.IsEmpty && reason == CompleteReason.Finished)
+            {
+                var list = new List<SnapshotSpan>();
+                while (!stack.IsEmpty)
+                {
+                    GetTags(new NormalizedSnapshotSpanCollection(stack.Value.Extent));
+                    stack = stack.Pop();
+                }
+            }
         }
 
         #region ITagger<TTag>
@@ -862,7 +944,7 @@ namespace EditorUtils.Implementation.Tagging
         {
             Dispose();
         }
-        
+
         #endregion
     }
 }

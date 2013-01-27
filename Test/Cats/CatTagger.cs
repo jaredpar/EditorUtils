@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Threading;
 using EditorUtils;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
-using System.Diagnostics;
 
 namespace Cats
 {
@@ -39,7 +39,9 @@ namespace Cats
                 }
 
                 // Cats need naps
+                Debug.WriteLine("Cat Nap Time");
                 Thread.Sleep(TimeSpan.FromSeconds(1));
+                Debug.WriteLine("Cat Wake Up");
 
                 return tags.ToReadOnlyCollectionShallow();
             }

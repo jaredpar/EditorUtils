@@ -239,11 +239,14 @@ namespace EditorUtils.UnitTest
             CancellationTokenSource cancellationTokenSource,
             Task task = null)
         {
+            var threadedLineRangeStack = new ThreadedLineRangeStack();
+            threadedLineRangeStack.Push(SnapshotLineRange.CreateForSpan(span));
+
             task = task ?? new Task(() => { });
             return new AsyncTaggerType.AsyncBackgroundRequest(
-                SnapshotLineRange.CreateForSpan(span),
+                span.Snapshot,
                 cancellationTokenSource,
-                new SingleItemQueue<SnapshotLineRange>(),
+                threadedLineRangeStack,
                 task);
         }
 
@@ -418,28 +421,30 @@ namespace EditorUtils.UnitTest
             }
 
             /// <summary>
-            /// If there is a better background request in progress don't replace that 
-            /// one when a call to GetTags occurs.  Better means having an encompasing
-            /// span for the new request
+            /// If there is an existing request out and a new one comes in then just append to that
+            /// request instead of creating a new one
             /// </summary>
             [Fact]
-            public void DontReplaceBetterRequest()
+            public void AppendExistingRequest()
             {
                 Create("cat", "dog", "bear");
 
                 var cancellationTokenSource = new CancellationTokenSource();
                 _asyncTagger.AsyncBackgroundRequestData = CreateAsyncBackgroundRequest(
-                    _textBuffer.GetExtent(),
+                    _textBuffer.GetLineRange(0).Extent,
                     cancellationTokenSource,
                     new Task(() => { }));
+                var threadedLineRangeStack = _asyncTagger.AsyncBackgroundRequestData.Value.ThreadedLineRangeStack;
+                Assert.Equal(1, threadedLineRangeStack.CurrentStack.Count);
 
-                var tags = _asyncTagger.GetTags(_textBuffer.GetLine(0).Extent).ToList();
-                Assert.Equal(0, tags.Count);
+                var tags = _asyncTagger.GetTags(_textBuffer.GetLineRange(1).Extent).ToList();
+                Assert.Equal(2, threadedLineRangeStack.CurrentStack.Count);
                 Assert.Same(cancellationTokenSource, _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource);
             }
 
             /// <summary>
-            /// If the existing requset is inferior to the new one then replace it
+            /// If the existing requset is on a different snapshot then it needs to be replaced when a new
+            /// request comes in 
             /// </summary>
             [Fact]
             public void ReplaceWorseRequest()
@@ -452,11 +457,11 @@ namespace EditorUtils.UnitTest
                     cancellationTokenSource,
                     new Task(() => { }));
 
+                _textBuffer.Replace(new Span(0, 1), "b");
                 var tags = _asyncTagger.GetTags(_textBuffer.GetExtent()).ToList();
                 Assert.Equal(0, tags.Count);
                 Assert.NotSame(cancellationTokenSource, _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource);
                 Assert.True(cancellationTokenSource.IsCancellationRequested);
-                Assert.Equal(_textBuffer.GetExtent(), _asyncTagger.AsyncBackgroundRequestData.Value.Span);
             }
 
             /// <summary>
@@ -479,7 +484,6 @@ namespace EditorUtils.UnitTest
                 Assert.Equal(0, tags.Count);
                 Assert.NotSame(cancellationTokenSource, _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource);
                 Assert.True(cancellationTokenSource.IsCancellationRequested);
-                Assert.Equal(_textBuffer.GetExtent(), _asyncTagger.AsyncBackgroundRequestData.Value.Span);
             }
 
             /// <summary>
@@ -729,6 +733,40 @@ namespace EditorUtils.UnitTest
                 Assert.True(tagsChanged.HasValue);
                 Assert.Equal(requestSpan, tagsChanged.Value);
             }
+        }
+    }
+
+    public sealed class ComplexTests : AsyncTaggerTest
+    {
+        /// <summary>
+        /// When the editor makes consequitive requests for various spans we need to eventually fulfill
+        /// all of those requests even if we prioritize the more recent ones
+        /// </summary>
+        [Fact]
+        public void FulfillOutstandingRequests()
+        {
+            Create("cat", "dog", "fish", "tree");
+            _asyncTagger.ChunkCount = 1;
+            _asyncTaggerSource.SetBackgroundTags(
+                _textBuffer.GetLineSpan(0, 0),
+                _textBuffer.GetLineSpan(2, 2));
+
+            for (int i = 0; i < _textBuffer.CurrentSnapshot.LineCount; i++)
+            {
+                var span = _textBuffer.GetLineSpan(i, i);
+                var col = new NormalizedSnapshotSpanCollection(span);
+                _asyncTagger.GetTags(col);
+            }
+
+            _asyncTaggerSource.Delay = null;
+            _asyncTagger.AsyncBackgroundRequestData.Value.Task.Wait();
+            while (!_synchronizationContext.IsEmpty)
+            {
+                _synchronizationContext.RunAll();
+            }
+
+            var tags = _asyncTagger.GetTags(new NormalizedSnapshotSpanCollection(_textBuffer.GetExtent()));
+            Assert.Equal(2, tags.Count());
         }
     }
 }
