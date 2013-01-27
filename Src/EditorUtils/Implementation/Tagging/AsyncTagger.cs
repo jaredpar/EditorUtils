@@ -314,6 +314,9 @@ namespace EditorUtils.Implementation.Tagging
         internal IEnumerable<ITagSpan<TTag>> GetTags(NormalizedSnapshotSpanCollection col)
         {
             var span = col.GetOverarchingSpan();
+            var lineRange = SnapshotLineRange.CreateForSpan(span);
+            EditorUtilsTrace.TraceInfo("AsyncTagger::GetTags {0} - {1}", lineRange.StartLineNumber, lineRange.LastLineNumber);
+
             AdjustRequestSpan(span);
 
             IEnumerable<ITagSpan<TTag>> tagList;
@@ -532,6 +535,8 @@ namespace EditorUtils.Implementation.Tagging
                 }
             }
 
+            EditorUtilsTrace.TraceInfo("AsyncTagger Pass Background {0} - {1}", lineRange.StartLineNumber, lineRange.LastLineNumber);
+
             // Function which finally gets the tags.  This is run on a background thread and can
             // throw as the implementor is encouraged to use CancellationToken::ThrowIfCancelled
             Action getTags = () => GetTagsInBackgroundCore(
@@ -717,6 +722,9 @@ namespace EditorUtils.Implementation.Tagging
 
         private void RaiseTagsChanged(SnapshotSpan span)
         {
+            var lineRange = SnapshotLineRange.CreateForSpan(span);
+            EditorUtilsTrace.TraceInfo("AsyncTagger::RaiseTagsChanged {0} - {1}", lineRange.StartLineNumber, lineRange.LastLineNumber);
+
             if (_tagsChanged != null)
             {
                 _tagsChanged(this, new SnapshotSpanEventArgs(span));

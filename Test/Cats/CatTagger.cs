@@ -6,6 +6,7 @@ using EditorUtils;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
+using System.Diagnostics;
 
 namespace Cats
 {
@@ -30,6 +31,7 @@ namespace Cats
             {
                 var tags = new List<ITagSpan<TextMarkerTag>>();
                 var lineRange = SnapshotLineRange.CreateForSpan(span);
+                Debug.WriteLine("Cat Version {0}, Lines {1} - {2}", span.Snapshot.Version.VersionNumber, lineRange.StartLineNumber, lineRange.LastLineNumber);
                 foreach (var snapshotLine in lineRange.Lines)
                 {
                     AddWordsOnLine(tags, snapshotLine);

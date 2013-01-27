@@ -20,6 +20,10 @@ namespace Cats
         internal CatTaggerProvider([EditorUtilsImport] ITaggerFactory taggerFactory)
         {
             _taggerFactory = taggerFactory;
+
+#if DEBUG
+            EditorUtilsTrace.TraceSwitch.Level = System.Diagnostics.TraceLevel.Info;
+#endif
         }
 
         #region IViewTaggerProvider
