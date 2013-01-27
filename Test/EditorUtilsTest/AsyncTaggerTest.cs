@@ -15,11 +15,11 @@ using AsyncTaggerType = EditorUtils.Implementation.Tagging.AsyncTagger<string, M
 
 namespace EditorUtils.UnitTest
 {
-    public sealed class AsyncTaggerTest : EditorHost, IDisposable
+    public abstract class AsyncTaggerTest : EditorHost, IDisposable
     {
         #region TestableAsyncTaggerSource
 
-        private sealed class TestableAsyncTaggerSource : IAsyncTaggerSource<string, TextMarkerTag>, IDisposable
+        protected sealed class TestableAsyncTaggerSource : IAsyncTaggerSource<string, TextMarkerTag>, IDisposable
         {
             private readonly ITextBuffer _textBuffer;
             private readonly int _threadId;
@@ -144,13 +144,13 @@ namespace EditorUtils.UnitTest
 
         #endregion
 
-        private ITextBuffer _textBuffer;
-        private TestableSynchronizationContext _synchronizationContext;
-        private TestableAsyncTaggerSource _asyncTaggerSource;
-        private AsyncTagger<string, TextMarkerTag> _asyncTagger;
-        private ITagger<TextMarkerTag> _asyncTaggerInterface;
+        protected ITextBuffer _textBuffer;
+        protected TestableSynchronizationContext _synchronizationContext;
+        protected TestableAsyncTaggerSource _asyncTaggerSource;
+        internal AsyncTagger<string, TextMarkerTag> _asyncTagger;
+        protected ITagger<TextMarkerTag> _asyncTaggerInterface;
 
-        private NormalizedSnapshotSpanCollection EntireBufferSpan
+        protected NormalizedSnapshotSpanCollection EntireBufferSpan
         {
             get { return new NormalizedSnapshotSpanCollection(_textBuffer.CurrentSnapshot.GetExtent()); }
         }
@@ -163,7 +163,7 @@ namespace EditorUtils.UnitTest
             }
         }
 
-        private void Create(params string[] lines)
+        protected void Create(params string[] lines)
         {
             _textBuffer = CreateTextBuffer(lines);
 
@@ -176,24 +176,24 @@ namespace EditorUtils.UnitTest
             _asyncTaggerInterface = _asyncTagger;
         }
 
-        private static ITagSpan<TextMarkerTag> CreateTagSpan(SnapshotSpan span)
+        protected static ITagSpan<TextMarkerTag> CreateTagSpan(SnapshotSpan span)
         {
             return new TagSpan<TextMarkerTag>(span, new TextMarkerTag("my tag"));
         }
 
-        private static ReadOnlyCollection<ITagSpan<TextMarkerTag>> CreateTagSpans(params SnapshotSpan[] tagSpans)
+        protected static ReadOnlyCollection<ITagSpan<TextMarkerTag>> CreateTagSpans(params SnapshotSpan[] tagSpans)
         {
             return tagSpans.Select(CreateTagSpan).ToReadOnlyCollection();
         }
 
-        private AsyncTaggerType.BackgroundCacheData CreateBackgroundCacheData(SnapshotSpan source, params SnapshotSpan[] tagSpans)
+        internal AsyncTaggerType.BackgroundCacheData CreateBackgroundCacheData(SnapshotSpan source, params SnapshotSpan[] tagSpans)
         {
             return new AsyncTaggerType.BackgroundCacheData(
                 source,
                 tagSpans.Select(CreateTagSpan).ToReadOnlyCollection());
         }
 
-        private AsyncTaggerType.TrackingCacheData CreateTrackingCacheData(SnapshotSpan source, params SnapshotSpan[] tagSpans)
+        internal AsyncTaggerType.TrackingCacheData CreateTrackingCacheData(SnapshotSpan source, params SnapshotSpan[] tagSpans)
         {
             var snapshot = source.Snapshot;
             var trackingSpan = snapshot.CreateTrackingSpan(source, SpanTrackingMode.EdgeInclusive);
@@ -206,19 +206,19 @@ namespace EditorUtils.UnitTest
                 all);
         }
 
-        private AsyncTaggerType.TagCache CreateTagCache(SnapshotSpan source, params SnapshotSpan[] tagSpans)
+        internal AsyncTaggerType.TagCache CreateTagCache(SnapshotSpan source, params SnapshotSpan[] tagSpans)
         {
             var backgroundCacheData = CreateBackgroundCacheData(source, tagSpans);
             return new AsyncTaggerType.TagCache(backgroundCacheData, null);
         }
 
-        private List<ITagSpan<TextMarkerTag>> GetTagsFull(SnapshotSpan span)
+        protected List<ITagSpan<TextMarkerTag>> GetTagsFull(SnapshotSpan span)
         {
             bool unused;
             return GetTagsFull(span, out unused);
         }
 
-        private List<ITagSpan<TextMarkerTag>> GetTagsFull(SnapshotSpan span, out bool wasAsync)
+        protected List<ITagSpan<TextMarkerTag>> GetTagsFull(SnapshotSpan span, out bool wasAsync)
         {
             Assert.False(_asyncTagger.AsyncBackgroundRequestData.HasValue);
             wasAsync = false;
@@ -234,7 +234,7 @@ namespace EditorUtils.UnitTest
             return tags;
         }
 
-        private AsyncTaggerType.AsyncBackgroundRequest CreateAsyncBackgroundRequest(
+        internal AsyncTaggerType.AsyncBackgroundRequest CreateAsyncBackgroundRequest(
             SnapshotSpan span,
             CancellationTokenSource cancellationTokenSource,
             Task task = null)
@@ -247,476 +247,488 @@ namespace EditorUtils.UnitTest
                 task);
         }
 
-        private void SetTagCache(AsyncTaggerType.TrackingCacheData trackingCacheData)
+        internal void SetTagCache(AsyncTaggerType.TrackingCacheData trackingCacheData)
         {
             _asyncTagger.TagCacheData = new AsyncTaggerType.TagCache(null, trackingCacheData);
         }
 
-        /// <summary>
-        /// If the tracking data is empty and we have now tags then it didn't chaneg
-        /// </summary>
-        [Fact]
-        public void DidTagsChange_EmptyTrackingData()
+        public sealed class DidTagsChangeTest : AsyncTaggerTest
         {
-            Create("cat", "dog", "bear");
-            var span = _textBuffer.GetLine(0).ExtentIncludingLineBreak;
-            SetTagCache(CreateTrackingCacheData(span));
-            Assert.True(_asyncTagger.DidTagsChange(span, CreateTagSpans(_textBuffer.GetSpan(0, 1))));
-        }
-
-        /// <summary>
-        /// If the tracking data is empty and there are no new tags for the same SnapshotSpan then
-        /// nothing changed
-        /// </summary>
-        [Fact]
-        public void DidTagsChange_EmptyTrackingData_NoNewTags()
-        {
-            Create("cat", "dog", "bear");
-            var span = _textBuffer.GetLine(0).ExtentIncludingLineBreak;
-            SetTagCache(CreateTrackingCacheData(span));
-            Assert.False(_asyncTagger.DidTagsChange(span, CreateTagSpans()));
-        }
-
-        /// <summary>
-        /// They didn't change if we can map forward to the same values
-        /// </summary>
-        [Fact]
-        public void DidTagsChange_MapsToSame()
-        {
-            Create("cat", "dog", "bear", "tree");
-            var span = _textBuffer.GetLine(0).ExtentIncludingLineBreak;
-            SetTagCache(CreateTrackingCacheData(span, _textBuffer.GetSpan(1, 3)));
-            _textBuffer.Replace(_textBuffer.GetLine(2).Extent, "fish");
-            Assert.False(_asyncTagger.DidTagsChange(_textBuffer.GetLine(0).ExtentIncludingLineBreak, CreateTagSpans(_textBuffer.GetSpan(1, 3))));
-        }
-
-        /// <summary>
-        /// They changed if the edit moved them to different places
-        /// </summary>
-        [Fact]
-        public void DidTagsChange_MapsToDifferent()
-        {
-            Create("cat", "dog", "bear", "tree");
-            var span = _textBuffer.GetLine(0).ExtentIncludingLineBreak;
-            SetTagCache(CreateTrackingCacheData(span, _textBuffer.GetSpan(1, 3)));
-            _textBuffer.Insert(0, "big ");
-            Assert.True(_asyncTagger.DidTagsChange(span, CreateTagSpans(_textBuffer.GetSpan(1, 4))));
-        }
-
-        /// <summary>
-        /// They changed if they are simply different
-        /// </summary>
-        [Fact]
-        public void DidTagsChange_Different()
-        {
-            Create("cat", "dog", "bear", "tree");
-            var span = _textBuffer.GetLine(0).ExtentIncludingLineBreak;
-            SetTagCache(CreateTrackingCacheData(span, _textBuffer.GetSpan(1, 3)));
-            Assert.True(_asyncTagger.DidTagsChange(span, CreateTagSpans(
-                _textBuffer.GetSpan(1, 3), 
-                _textBuffer.GetSpan(5, 7))));
-        }
-
-        /// <summary>
-        /// First choice should be to go through the prompt code.  This shouldn't create
-        /// any cache
-        /// </summary>
-        [Fact]
-        public void GetTags_UsePrompt()
-        {
-            Create("hello world");
-            _asyncTaggerSource.SetPromptTags(_textBuffer.GetSpan(0, 1));
-            var tags = _asyncTagger.GetTags(EntireBufferSpan).ToList();
-            Assert.Equal(1, tags.Count);
-            Assert.Equal(_textBuffer.GetSpan(0, 1), tags[0].Span);
-            Assert.True(_synchronizationContext.IsEmpty);
-            Assert.True(_asyncTagger.TagCacheData.IsEmpty);
-        }
-
-        /// <summary>
-        /// If the source can't provide prompt data then the tagger needs to go through
-        /// the cache next
-        /// </summary>
-        [Fact]
-        public void GetTags_UseCache()
-        {
-            Create("hello world");
-            _asyncTagger.TagCacheData = CreateTagCache(
-                _textBuffer.GetExtent(),
-                _textBuffer.GetSpan(0, 1));
-            var tags = _asyncTagger.GetTags(EntireBufferSpan).ToList();
-            Assert.Equal(1, tags.Count);
-            Assert.Equal(_textBuffer.GetSpan(0, 1), tags[0].Span);
-        }
-
-        /// <summary>
-        /// When there are no prompt sources available for tags we should schedule this
-        /// for the background thread
-        /// </summary>
-        [Fact]
-        public void GetTags_UseBackground()
-        {
-            Create("hello world");
-            var tags = _asyncTagger.GetTags(EntireBufferSpan).ToList();
-            Assert.Equal(0, tags.Count);
-            Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
-        }
-
-        /// <summary>
-        /// Full test going through the background
-        /// </summary>
-        [Fact]
-        public void GetTags_UseBackgroundUpdateCache()
-        {
-            Create("cat", "dog", "bear");
-            var span = _textBuffer.GetSpan(1, 2);
-            _asyncTaggerSource.SetBackgroundTags(span);
-            bool wasAsync;
-            var tags = GetTagsFull(_textBuffer.GetExtent(), out wasAsync);
-            Assert.Equal(1, tags.Count);
-            Assert.Equal(span, tags[0].Span);
-            Assert.True(wasAsync);
-        }
-
-        /// <summary>
-        /// Make sure that we can get the tags when there is an explicit delay from
-        /// the source
-        /// </summary>
-        [Fact]
-        public void GetTags_Delay()
-        {
-            Create("cat", "dog", "bear");
-            var span = _textBuffer.GetSpan(1, 2);
-            _asyncTaggerSource.SetBackgroundTags(span);
-            var tags = GetTagsFull(_textBuffer.GetExtent());
-            Assert.Equal(1, tags.Count);
-            Assert.Equal(span, tags[0].Span);
-        }
-
-        /// <summary>
-        /// The completion of the background operation should cause the TagsChanged
-        /// event to be run
-        /// </summary>
-        [Fact]
-        public void GetTags_BackgroundShouldRaiseTagsChanged()
-        {
-            Create("cat", "dog", "bear");
-            _asyncTaggerSource.SetBackgroundTags(
-                _textBuffer.GetSpan(1, 2),
-                _textBuffer.GetSpan(3, 4));
-
-            var didRun = false;
-            _asyncTaggerInterface.TagsChanged += delegate { didRun = true; };
-            var tags = GetTagsFull(_textBuffer.GetExtent());
-            Assert.True(didRun);
-            Assert.Equal(2, tags.Count);
-        }
-
-        /// <summary>
-        /// If there is a better background request in progress don't replace that 
-        /// one when a call to GetTags occurs.  Better means having an encompasing
-        /// span for the new request
-        /// </summary>
-        [Fact]
-        public void GetTags_DontReplaceBetterRequest()
-        {
-            Create("cat", "dog", "bear");
-
-            var cancellationTokenSource = new CancellationTokenSource();
-            _asyncTagger.AsyncBackgroundRequestData = CreateAsyncBackgroundRequest(
-                _textBuffer.GetExtent(),
-                cancellationTokenSource,
-                new Task(() => { }));
-
-            var tags = _asyncTagger.GetTags(_textBuffer.GetLine(0).Extent).ToList();
-            Assert.Equal(0, tags.Count);
-            Assert.Same(cancellationTokenSource, _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource);
-        }
-
-        /// <summary>
-        /// If the existing requset is inferior to the new one then replace it
-        /// </summary>
-        [Fact]
-        public void GetTags_ReplaceWorseRequest()
-        {
-            Create("cat", "dog", "bear");
-
-            var cancellationTokenSource = new CancellationTokenSource();
-            _asyncTagger.AsyncBackgroundRequestData = CreateAsyncBackgroundRequest(
-                _textBuffer.GetLine(0).Extent,
-                cancellationTokenSource,
-                new Task(() => { }));
-
-            var tags = _asyncTagger.GetTags(_textBuffer.GetExtent()).ToList();
-            Assert.Equal(0, tags.Count);
-            Assert.NotSame(cancellationTokenSource, _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource);
-            Assert.True(cancellationTokenSource.IsCancellationRequested);
-            Assert.Equal(_textBuffer.GetExtent(), _asyncTagger.AsyncBackgroundRequestData.Value.Span);
-        }
-
-        /// <summary>
-        /// The same Span on different snapshots should cause a different request to be queued
-        /// up
-        /// </summary>
-        [Fact]
-        public void GetTags_ReplaceWhenSnapshotChanges()
-        {
-            Create("cat", "dog", "bear");
-
-            var cancellationTokenSource = new CancellationTokenSource();
-            _asyncTagger.AsyncBackgroundRequestData = CreateAsyncBackgroundRequest(
-                _textBuffer.GetExtent(),
-                cancellationTokenSource,
-                new Task(() => { }));
-
-            _textBuffer.Replace(new Span(0, 3), "bat");
-            var tags = _asyncTagger.GetTags(_textBuffer.GetExtent()).ToList();
-            Assert.Equal(0, tags.Count);
-            Assert.NotSame(cancellationTokenSource, _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource);
-            Assert.True(cancellationTokenSource.IsCancellationRequested);
-            Assert.Equal(_textBuffer.GetExtent(), _asyncTagger.AsyncBackgroundRequestData.Value.Span);
-        }
-
-        /// <summary>
-        /// If the background request throws (for any reason including cancellation) then it should
-        /// be handled and treated just like an empty return
-        /// </summary>
-        [Fact]
-        public void GetTags_BackgroundThrows()
-        {
-            Create("cat", "dog", "bat");
-
-            var didRun = false;
-            _asyncTaggerSource.SetBackgroundCallback(delegate 
+            /// <summary>
+            /// If the tracking data is empty and we have now tags then it didn't chaneg
+            /// </summary>
+            [Fact]
+            public void EmptyTrackingData()
             {
-                didRun = true;
-                throw new Exception("");
-            });
+                Create("cat", "dog", "bear");
+                var span = _textBuffer.GetLine(0).ExtentIncludingLineBreak;
+                SetTagCache(CreateTrackingCacheData(span));
+                Assert.True(_asyncTagger.DidTagsChange(span, CreateTagSpans(_textBuffer.GetSpan(0, 1))));
+            }
 
-            var tags = GetTagsFull(_textBuffer.GetExtent());
-            Assert.Equal(0, tags.Count);
-            Assert.True(didRun);
-        }
-
-        /// <summary>
-        /// Even if the cache doesn't completely match the information in the cache we should at
-        /// least the partial information we have and schedule the rest
-        /// </summary>
-        [Fact]
-        public void GetTags_PartialMatchInCache()
-        {
-            Create("cat", "dog", "bat");
-            _asyncTagger.TagCacheData = CreateTagCache(
-                _textBuffer.GetLine(0).ExtentIncludingLineBreak,
-                _textBuffer.GetSpan(0, 1));
-            var tags = _asyncTagger.GetTags(_textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak).ToList();
-            Assert.Equal(1, tags.Count);
-            Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
-        }
-
-        /// <summary>
-        /// If there is a forward edit we should still return cache data as best as possible promptly
-        /// and schedule a background task for the correct data
-        /// </summary>
-        [Fact]
-        public void GetTags_ForwardEdit()
-        {
-            Create("cat", "dog", "bat");
-            _asyncTagger.TagCacheData = CreateTagCache(
-                _textBuffer.GetLine(0).ExtentIncludingLineBreak,
-                _textBuffer.GetSpan(0, 1));
-            _textBuffer.Replace(new Span(0, 3), "cot");
-            var tags = _asyncTagger.GetTags(_textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak).ToList();
-            Assert.Equal(1, tags.Count);
-            Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
-        }
-
-        /// <summary>
-        /// Make sure that a prompt call updates the request span
-        /// </summary>
-        [Fact]
-        public void GetTags_PromptUpdateRequestSpan()
-        {
-            Create("hello world", "cat chased the dog");
-            var span = _textBuffer.GetSpan(0, 6);
-            _asyncTaggerSource.SetPromptTags(_textBuffer.GetSpan(0, 1));
-            _asyncTagger.GetTags(span);
-            Assert.Equal(span, _asyncTagger.CachedRequestSpan.Value);
-        }
-
-        /// <summary>
-        /// If we have tags which are mixed between background and tracking we need to pull 
-        /// from both sources
-        /// </summary>
-        [Fact]
-        public void GetTags_BackgroundAndTracking()
-        {
-            Create("cat", "dog", "bear", "pig");
-            var backgroundData = CreateBackgroundCacheData(_textBuffer.GetLine(0).Extent, _textBuffer.GetLineSpan(0, 1));
-            var trackingData = CreateTrackingCacheData(_textBuffer.GetLine(1).Extent, _textBuffer.GetLineSpan(1, 1));
-            _asyncTagger.TagCacheData = new AsyncTaggerType.TagCache(backgroundData, trackingData);
-            var tags = _asyncTagger.GetTags(_textBuffer.GetLineRange(0, 2).ExtentIncludingLineBreak);
-            Assert.Equal(2, tags.Count());
-        }
-
-        /// <summary>
-        /// Shrink the ITextSnapshot to 0 to ensure the GetTags call doesn't do math against the
-        /// incorrect ITextSnapshot.  If we use a Span against the wrong ITextSnapshot it should 
-        /// cause an exception
-        /// </summary>
-        [Fact]
-        public void GetTags_ToEmptyBuffer()
-        {
-            Create("cat", "dog", "bear", "pig");
-            _asyncTagger.TagCacheData = CreateTagCache(
-                _textBuffer.GetExtent(),
-                _textBuffer.GetSpan(0, 3),
-                _textBuffer.GetSpan(5, 3));
-            _textBuffer.Delete(new Span(0, _textBuffer.CurrentSnapshot.Length));
-            var list = GetTagsFull(_textBuffer.GetExtent());
-            Assert.NotNull(list);
-        }
-
-        /// <summary>
-        /// If the IAsyncTaggerSource raises a TagsChanged event then the tagger must clear 
-        /// out it's cache.  Anything it's stored up until this point is now invalid
-        /// </summary>
-        [Fact]
-        public void OnChanged_ClearCache()
-        {
-            Create("hello world");
-            _asyncTagger.TagCacheData = CreateTagCache(
-                _textBuffer.GetExtent(),
-                _textBuffer.GetSpan(0, 1));
-            _asyncTaggerSource.RaiseChanged(null);
-            Assert.True(_asyncTagger.TagCacheData.IsEmpty);
-        }
-
-        /// <summary>
-        /// If the IAsyncTaggerSource raises a TagsChanged event then any existing tagger
-        /// requests are invalid
-        /// </summary>
-        [Fact]
-        public void OnChanged_ClearBackgroundRequest()
-        {
-            Create("hello world");
-            var cancellationTokenSource = new CancellationTokenSource();
-            _asyncTagger.AsyncBackgroundRequestData = CreateAsyncBackgroundRequest(
-                _textBuffer.GetExtent(),
-                cancellationTokenSource,
-                new Task(() => { }));
-            _asyncTaggerSource.RaiseChanged(null);
-            Assert.False(_asyncTagger.AsyncBackgroundRequestData.HasValue);
-            Assert.True(cancellationTokenSource.IsCancellationRequested);
-        }
-
-        /// <summary>
-        /// When the IAsyncTaggerSource raises it's event the tagger must as well
-        /// </summary>
-        [Fact]
-        public void OnChanged_RaiseEvent()
-        {
-            Create("hello world");
-            _asyncTagger.CachedRequestSpan = _textBuffer.GetLine(0).Extent;
-            var didRun = false;
-            _asyncTaggerInterface.TagsChanged += delegate
+            /// <summary>
+            /// If the tracking data is empty and there are no new tags for the same SnapshotSpan then
+            /// nothing changed
+            /// </summary>
+            [Fact]
+            public void EmptyTrackingData_NoNewTags()
             {
-                didRun = true;
-            };
+                Create("cat", "dog", "bear");
+                var span = _textBuffer.GetLine(0).ExtentIncludingLineBreak;
+                SetTagCache(CreateTrackingCacheData(span));
+                Assert.False(_asyncTagger.DidTagsChange(span, CreateTagSpans()));
+            }
 
-            _asyncTaggerSource.RaiseChanged(null);
-            Assert.True(didRun);
-        }
-
-        /// <summary>
-        /// If we've not recieved a GetTags request then don't raise a TagsChanged event when
-        /// we get a Changed event.  
-        /// </summary>
-        [Fact]
-        public void OnChanged_DontRaiseEventIfNoRequests()
-        {
-            Create("hello world");
-            var didRun = false;
-            _asyncTaggerInterface.TagsChanged += delegate
+            /// <summary>
+            /// They didn't change if we can map forward to the same values
+            /// </summary>
+            [Fact]
+            public void MapsToSame()
             {
-                didRun = true;
-            };
+                Create("cat", "dog", "bear", "tree");
+                var span = _textBuffer.GetLine(0).ExtentIncludingLineBreak;
+                SetTagCache(CreateTrackingCacheData(span, _textBuffer.GetSpan(1, 3)));
+                _textBuffer.Replace(_textBuffer.GetLine(2).Extent, "fish");
+                Assert.False(_asyncTagger.DidTagsChange(_textBuffer.GetLine(0).ExtentIncludingLineBreak, CreateTagSpans(_textBuffer.GetSpan(1, 3))));
+            }
 
-            _asyncTaggerSource.RaiseChanged(null);
-            Assert.False(didRun);
+            /// <summary>
+            /// They changed if the edit moved them to different places
+            /// </summary>
+            [Fact]
+            public void MapsToDifferent()
+            {
+                Create("cat", "dog", "bear", "tree");
+                var span = _textBuffer.GetLine(0).ExtentIncludingLineBreak;
+                SetTagCache(CreateTrackingCacheData(span, _textBuffer.GetSpan(1, 3)));
+                _textBuffer.Insert(0, "big ");
+                Assert.True(_asyncTagger.DidTagsChange(span, CreateTagSpans(_textBuffer.GetSpan(1, 4))));
+            }
+
+            /// <summary>
+            /// They changed if they are simply different
+            /// </summary>
+            [Fact]
+            public void Different()
+            {
+                Create("cat", "dog", "bear", "tree");
+                var span = _textBuffer.GetLine(0).ExtentIncludingLineBreak;
+                SetTagCache(CreateTrackingCacheData(span, _textBuffer.GetSpan(1, 3)));
+                Assert.True(_asyncTagger.DidTagsChange(span, CreateTagSpans(
+                    _textBuffer.GetSpan(1, 3),
+                    _textBuffer.GetSpan(5, 7))));
+            }
         }
 
-        /// <summary>
-        /// When the initial background request completes make sure that a TagsChanged is raised for the
-        /// expected SnapshotSpan
-        /// </summary>
-        [Fact]
-        public void TagsChanged_BackgroundComplete()
+        public sealed class GetTagsTest : AsyncTaggerTest
         {
-            Create("cat", "dog", "bear");
-            SnapshotSpan? tagsChanged = null;
-            var requestSpan = _textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak;
-            _asyncTaggerInterface.TagsChanged += (sender, e) => { tagsChanged = e.Span; };
-            _asyncTaggerSource.SetBackgroundTags(_textBuffer.GetSpan(0, 1));
-            GetTagsFull(requestSpan);
-            Assert.True(tagsChanged.HasValue);
-            Assert.Equal(requestSpan, tagsChanged);
+            /// <summary>
+            /// First choice should be to go through the prompt code.  This shouldn't create
+            /// any cache
+            /// </summary>
+            [Fact]
+            public void UsePrompt()
+            {
+                Create("hello world");
+                _asyncTaggerSource.SetPromptTags(_textBuffer.GetSpan(0, 1));
+                var tags = _asyncTagger.GetTags(EntireBufferSpan).ToList();
+                Assert.Equal(1, tags.Count);
+                Assert.Equal(_textBuffer.GetSpan(0, 1), tags[0].Span);
+                Assert.True(_synchronizationContext.IsEmpty);
+                Assert.True(_asyncTagger.TagCacheData.IsEmpty);
+            }
+
+            /// <summary>
+            /// If the source can't provide prompt data then the tagger needs to go through
+            /// the cache next
+            /// </summary>
+            [Fact]
+            public void UseCache()
+            {
+                Create("hello world");
+                _asyncTagger.TagCacheData = CreateTagCache(
+                    _textBuffer.GetExtent(),
+                    _textBuffer.GetSpan(0, 1));
+                var tags = _asyncTagger.GetTags(EntireBufferSpan).ToList();
+                Assert.Equal(1, tags.Count);
+                Assert.Equal(_textBuffer.GetSpan(0, 1), tags[0].Span);
+            }
+
+            /// <summary>
+            /// When there are no prompt sources available for tags we should schedule this
+            /// for the background thread
+            /// </summary>
+            [Fact]
+            public void UseBackground()
+            {
+                Create("hello world");
+                var tags = _asyncTagger.GetTags(EntireBufferSpan).ToList();
+                Assert.Equal(0, tags.Count);
+                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
+            }
+
+            /// <summary>
+            /// Full test going through the background
+            /// </summary>
+            [Fact]
+            public void UseBackgroundUpdateCache()
+            {
+                Create("cat", "dog", "bear");
+                var span = _textBuffer.GetSpan(1, 2);
+                _asyncTaggerSource.SetBackgroundTags(span);
+                bool wasAsync;
+                var tags = GetTagsFull(_textBuffer.GetExtent(), out wasAsync);
+                Assert.Equal(1, tags.Count);
+                Assert.Equal(span, tags[0].Span);
+                Assert.True(wasAsync);
+            }
+
+            /// <summary>
+            /// Make sure that we can get the tags when there is an explicit delay from
+            /// the source
+            /// </summary>
+            [Fact]
+            public void Delay()
+            {
+                Create("cat", "dog", "bear");
+                var span = _textBuffer.GetSpan(1, 2);
+                _asyncTaggerSource.SetBackgroundTags(span);
+                var tags = GetTagsFull(_textBuffer.GetExtent());
+                Assert.Equal(1, tags.Count);
+                Assert.Equal(span, tags[0].Span);
+            }
+
+            /// <summary>
+            /// The completion of the background operation should cause the TagsChanged
+            /// event to be run
+            /// </summary>
+            [Fact]
+            public void BackgroundShouldRaiseTagsChanged()
+            {
+                Create("cat", "dog", "bear");
+                _asyncTaggerSource.SetBackgroundTags(
+                    _textBuffer.GetSpan(1, 2),
+                    _textBuffer.GetSpan(3, 4));
+
+                var didRun = false;
+                _asyncTaggerInterface.TagsChanged += delegate { didRun = true; };
+                var tags = GetTagsFull(_textBuffer.GetExtent());
+                Assert.True(didRun);
+                Assert.Equal(2, tags.Count);
+            }
+
+            /// <summary>
+            /// If there is a better background request in progress don't replace that 
+            /// one when a call to GetTags occurs.  Better means having an encompasing
+            /// span for the new request
+            /// </summary>
+            [Fact]
+            public void DontReplaceBetterRequest()
+            {
+                Create("cat", "dog", "bear");
+
+                var cancellationTokenSource = new CancellationTokenSource();
+                _asyncTagger.AsyncBackgroundRequestData = CreateAsyncBackgroundRequest(
+                    _textBuffer.GetExtent(),
+                    cancellationTokenSource,
+                    new Task(() => { }));
+
+                var tags = _asyncTagger.GetTags(_textBuffer.GetLine(0).Extent).ToList();
+                Assert.Equal(0, tags.Count);
+                Assert.Same(cancellationTokenSource, _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource);
+            }
+
+            /// <summary>
+            /// If the existing requset is inferior to the new one then replace it
+            /// </summary>
+            [Fact]
+            public void ReplaceWorseRequest()
+            {
+                Create("cat", "dog", "bear");
+
+                var cancellationTokenSource = new CancellationTokenSource();
+                _asyncTagger.AsyncBackgroundRequestData = CreateAsyncBackgroundRequest(
+                    _textBuffer.GetLine(0).Extent,
+                    cancellationTokenSource,
+                    new Task(() => { }));
+
+                var tags = _asyncTagger.GetTags(_textBuffer.GetExtent()).ToList();
+                Assert.Equal(0, tags.Count);
+                Assert.NotSame(cancellationTokenSource, _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource);
+                Assert.True(cancellationTokenSource.IsCancellationRequested);
+                Assert.Equal(_textBuffer.GetExtent(), _asyncTagger.AsyncBackgroundRequestData.Value.Span);
+            }
+
+            /// <summary>
+            /// The same Span on different snapshots should cause a different request to be queued
+            /// up
+            /// </summary>
+            [Fact]
+            public void ReplaceWhenSnapshotChanges()
+            {
+                Create("cat", "dog", "bear");
+
+                var cancellationTokenSource = new CancellationTokenSource();
+                _asyncTagger.AsyncBackgroundRequestData = CreateAsyncBackgroundRequest(
+                    _textBuffer.GetExtent(),
+                    cancellationTokenSource,
+                    new Task(() => { }));
+
+                _textBuffer.Replace(new Span(0, 3), "bat");
+                var tags = _asyncTagger.GetTags(_textBuffer.GetExtent()).ToList();
+                Assert.Equal(0, tags.Count);
+                Assert.NotSame(cancellationTokenSource, _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource);
+                Assert.True(cancellationTokenSource.IsCancellationRequested);
+                Assert.Equal(_textBuffer.GetExtent(), _asyncTagger.AsyncBackgroundRequestData.Value.Span);
+            }
+
+            /// <summary>
+            /// If the background request throws (for any reason including cancellation) then it should
+            /// be handled and treated just like an empty return
+            /// </summary>
+            [Fact]
+            public void BackgroundThrows()
+            {
+                Create("cat", "dog", "bat");
+
+                var didRun = false;
+                _asyncTaggerSource.SetBackgroundCallback(delegate
+                {
+                    didRun = true;
+                    throw new Exception("");
+                });
+
+                var tags = GetTagsFull(_textBuffer.GetExtent());
+                Assert.Equal(0, tags.Count);
+                Assert.True(didRun);
+            }
+
+            /// <summary>
+            /// Even if the cache doesn't completely match the information in the cache we should at
+            /// least the partial information we have and schedule the rest
+            /// </summary>
+            [Fact]
+            public void PartialMatchInCache()
+            {
+                Create("cat", "dog", "bat");
+                _asyncTagger.TagCacheData = CreateTagCache(
+                    _textBuffer.GetLine(0).ExtentIncludingLineBreak,
+                    _textBuffer.GetSpan(0, 1));
+                var tags = _asyncTagger.GetTags(_textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak).ToList();
+                Assert.Equal(1, tags.Count);
+                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
+            }
+
+            /// <summary>
+            /// If there is a forward edit we should still return cache data as best as possible promptly
+            /// and schedule a background task for the correct data
+            /// </summary>
+            [Fact]
+            public void ForwardEdit()
+            {
+                Create("cat", "dog", "bat");
+                _asyncTagger.TagCacheData = CreateTagCache(
+                    _textBuffer.GetLine(0).ExtentIncludingLineBreak,
+                    _textBuffer.GetSpan(0, 1));
+                _textBuffer.Replace(new Span(0, 3), "cot");
+                var tags = _asyncTagger.GetTags(_textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak).ToList();
+                Assert.Equal(1, tags.Count);
+                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
+            }
+
+            /// <summary>
+            /// Make sure that a prompt call updates the request span
+            /// </summary>
+            [Fact]
+            public void PromptUpdateRequestSpan()
+            {
+                Create("hello world", "cat chased the dog");
+                var span = _textBuffer.GetSpan(0, 6);
+                _asyncTaggerSource.SetPromptTags(_textBuffer.GetSpan(0, 1));
+                _asyncTagger.GetTags(span);
+                Assert.Equal(span, _asyncTagger.CachedRequestSpan.Value);
+            }
+
+            /// <summary>
+            /// If we have tags which are mixed between background and tracking we need to pull 
+            /// from both sources
+            /// </summary>
+            [Fact]
+            public void BackgroundAndTracking()
+            {
+                Create("cat", "dog", "bear", "pig");
+                var backgroundData = CreateBackgroundCacheData(_textBuffer.GetLine(0).Extent, _textBuffer.GetLineSpan(0, 1));
+                var trackingData = CreateTrackingCacheData(_textBuffer.GetLine(1).Extent, _textBuffer.GetLineSpan(1, 1));
+                _asyncTagger.TagCacheData = new AsyncTaggerType.TagCache(backgroundData, trackingData);
+                var tags = _asyncTagger.GetTags(_textBuffer.GetLineRange(0, 2).ExtentIncludingLineBreak);
+                Assert.Equal(2, tags.Count());
+            }
+
+            /// <summary>
+            /// Shrink the ITextSnapshot to 0 to ensure the GetTags call doesn't do math against the
+            /// incorrect ITextSnapshot.  If we use a Span against the wrong ITextSnapshot it should 
+            /// cause an exception
+            /// </summary>
+            [Fact]
+            public void ToEmptyBuffer()
+            {
+                Create("cat", "dog", "bear", "pig");
+                _asyncTagger.TagCacheData = CreateTagCache(
+                    _textBuffer.GetExtent(),
+                    _textBuffer.GetSpan(0, 3),
+                    _textBuffer.GetSpan(5, 3));
+                _textBuffer.Delete(new Span(0, _textBuffer.CurrentSnapshot.Length));
+                var list = GetTagsFull(_textBuffer.GetExtent());
+                Assert.NotNull(list);
+            }
         }
 
-        /// <summary>
-        /// During an edit we map the previous good data via ITrackingSpan instances while the next background
-        /// request completes.  So by the time a background request completes we've already provided tags for 
-        /// the span we are looking at.  If the simple ITrackingSpan mappings were correct then don't raise
-        /// TagsChanged again for the same SnapshotSpan.  Doing so causes needless work and results in items
-        /// like screen flickering
-        /// </summary>
-        [Fact]
-        public void TagsChanged_TrackingPredictedBackgroundResult()
+        public sealed class OnChangedTest : AsyncTaggerTest
         {
-            Create("cat", "dog", "bear", "tree");
+            /// <summary>
+            /// If the IAsyncTaggerSource raises a TagsChanged event then the tagger must clear 
+            /// out it's cache.  Anything it's stored up until this point is now invalid
+            /// </summary>
+            [Fact]
+            public void ClearCache()
+            {
+                Create("hello world");
+                _asyncTagger.TagCacheData = CreateTagCache(
+                    _textBuffer.GetExtent(),
+                    _textBuffer.GetSpan(0, 1));
+                _asyncTaggerSource.RaiseChanged(null);
+                Assert.True(_asyncTagger.TagCacheData.IsEmpty);
+            }
 
-            SnapshotSpan? tagsChanged = null;
-            _asyncTaggerInterface.TagsChanged += (sender, e) => { tagsChanged = e.Span; };
+            /// <summary>
+            /// If the IAsyncTaggerSource raises a TagsChanged event then any existing tagger
+            /// requests are invalid
+            /// </summary>
+            [Fact]
+            public void ClearBackgroundRequest()
+            {
+                Create("hello world");
+                var cancellationTokenSource = new CancellationTokenSource();
+                _asyncTagger.AsyncBackgroundRequestData = CreateAsyncBackgroundRequest(
+                    _textBuffer.GetExtent(),
+                    cancellationTokenSource,
+                    new Task(() => { }));
+                _asyncTaggerSource.RaiseChanged(null);
+                Assert.False(_asyncTagger.AsyncBackgroundRequestData.HasValue);
+                Assert.True(cancellationTokenSource.IsCancellationRequested);
+            }
 
-            // Setup the previous background cache
-            _asyncTagger.TagCacheData = new AsyncTaggerType.TagCache(null, CreateTrackingCacheData(
-                _textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak,
-                _textBuffer.GetSpan(0, 1)));
+            /// <summary>
+            /// When the IAsyncTaggerSource raises it's event the tagger must as well
+            /// </summary>
+            [Fact]
+            public void RaiseEvent()
+            {
+                Create("hello world");
+                _asyncTagger.CachedRequestSpan = _textBuffer.GetLine(0).Extent;
+                var didRun = false;
+                _asyncTaggerInterface.TagsChanged += delegate
+                {
+                    didRun = true;
+                };
 
-            // Make an edit so that we are truly mapping forward then request tags for the same
-            // area
-            _textBuffer.Replace(_textBuffer.GetLine(2).Extent.Span, "fish");
-            _asyncTaggerSource.SetBackgroundTags(_textBuffer.GetSpan(0, 1));
-            GetTagsFull(_textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak);
+                _asyncTaggerSource.RaiseChanged(null);
+                Assert.True(didRun);
+            }
 
-            Assert.False(tagsChanged.HasValue);
+            /// <summary>
+            /// If we've not recieved a GetTags request then don't raise a TagsChanged event when
+            /// we get a Changed event.  
+            /// </summary>
+            [Fact]
+            public void DontRaiseEventIfNoRequests()
+            {
+                Create("hello world");
+                var didRun = false;
+                _asyncTaggerInterface.TagsChanged += delegate
+                {
+                    didRun = true;
+                };
+
+                _asyncTaggerSource.RaiseChanged(null);
+                Assert.False(didRun);
+            }
         }
 
-        /// <summary>
-        /// An edit followed by different tags should raise the TagsChanged event
-        /// </summary>
-        [Fact]
-        public void TagsChanged_TrackingDidNotPredictBackgroundResult()
+        public sealed class TagsChangedTest : AsyncTaggerTest
         {
-            Create("cat", "dog", "bear", "tree");
+            /// <summary>
+            /// When the initial background request completes make sure that a TagsChanged is raised for the
+            /// expected SnapshotSpan
+            /// </summary>
+            [Fact]
+            public void BackgroundComplete()
+            {
+                Create("cat", "dog", "bear");
+                SnapshotSpan? tagsChanged = null;
+                var requestSpan = _textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak;
+                _asyncTaggerInterface.TagsChanged += (sender, e) => { tagsChanged = e.Span; };
+                _asyncTaggerSource.SetBackgroundTags(_textBuffer.GetSpan(0, 1));
+                GetTagsFull(requestSpan);
+                Assert.True(tagsChanged.HasValue);
+                Assert.Equal(requestSpan, tagsChanged);
+            }
 
-            SnapshotSpan? tagsChanged = null;
-            _asyncTaggerInterface.TagsChanged += (sender, e) => { tagsChanged = e.Span; };
+            /// <summary>
+            /// During an edit we map the previous good data via ITrackingSpan instances while the next background
+            /// request completes.  So by the time a background request completes we've already provided tags for 
+            /// the span we are looking at.  If the simple ITrackingSpan mappings were correct then don't raise
+            /// TagsChanged again for the same SnapshotSpan.  Doing so causes needless work and results in items
+            /// like screen flickering
+            /// </summary>
+            [Fact]
+            public void TrackingPredictedBackgroundResult()
+            {
+                Create("cat", "dog", "bear", "tree");
 
-            // Setup the previous background cache
-            _asyncTagger.TagCacheData = new AsyncTaggerType.TagCache(null, CreateTrackingCacheData(
-                _textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak,
-                _textBuffer.GetSpan(0, 1)));
+                SnapshotSpan? tagsChanged = null;
+                _asyncTaggerInterface.TagsChanged += (sender, e) => { tagsChanged = e.Span; };
 
-            // Make an edit so that we are truly mapping forward then request tags for the same
-            // area
-            _textBuffer.Replace(_textBuffer.GetLine(2).Extent.Span, "fish");
-            _asyncTaggerSource.SetBackgroundTags(_textBuffer.GetSpan(1, 1));
-            var requestSpan = _textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak;
-            GetTagsFull(requestSpan);
+                // Setup the previous background cache
+                _asyncTagger.TagCacheData = new AsyncTaggerType.TagCache(null, CreateTrackingCacheData(
+                    _textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak,
+                    _textBuffer.GetSpan(0, 1)));
 
-            Assert.True(tagsChanged.HasValue);
-            Assert.Equal(requestSpan, tagsChanged.Value);
+                // Make an edit so that we are truly mapping forward then request tags for the same
+                // area
+                _textBuffer.Replace(_textBuffer.GetLine(2).Extent.Span, "fish");
+                _asyncTaggerSource.SetBackgroundTags(_textBuffer.GetSpan(0, 1));
+                GetTagsFull(_textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak);
+
+                Assert.False(tagsChanged.HasValue);
+            }
+
+            /// <summary>
+            /// An edit followed by different tags should raise the TagsChanged event
+            /// </summary>
+            [Fact]
+            public void TrackingDidNotPredictBackgroundResult()
+            {
+                Create("cat", "dog", "bear", "tree");
+
+                SnapshotSpan? tagsChanged = null;
+                _asyncTaggerInterface.TagsChanged += (sender, e) => { tagsChanged = e.Span; };
+
+                // Setup the previous background cache
+                _asyncTagger.TagCacheData = new AsyncTaggerType.TagCache(null, CreateTrackingCacheData(
+                    _textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak,
+                    _textBuffer.GetSpan(0, 1)));
+
+                // Make an edit so that we are truly mapping forward then request tags for the same
+                // area
+                _textBuffer.Replace(_textBuffer.GetLine(2).Extent.Span, "fish");
+                _asyncTaggerSource.SetBackgroundTags(_textBuffer.GetSpan(1, 1));
+                var requestSpan = _textBuffer.GetLineRange(0, 1).ExtentIncludingLineBreak;
+                GetTagsFull(requestSpan);
+
+                Assert.True(tagsChanged.HasValue);
+                Assert.Equal(requestSpan, tagsChanged.Value);
+            }
         }
     }
 }
