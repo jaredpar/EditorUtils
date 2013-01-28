@@ -36,17 +36,22 @@ namespace EditorUtils.Implementation.Tagging
             }
         }
 
-        private void AdjustRequestSpan(SnapshotSpan requestSpan)
+        private void AdjustRequestSpan(NormalizedSnapshotSpanCollection col)
         {
-            _cachedRequestSpan = TaggerUtil.AdjustRequestedSpan(_cachedRequestSpan, requestSpan);
+            if (col.Count > 0)
+            {
+                var requestSpan = col.GetOverarchingSpan();
+                _cachedRequestSpan = TaggerUtil.AdjustRequestedSpan(_cachedRequestSpan, requestSpan);
+            }
         }
 
         private IEnumerable<ITagSpan<TTag>> GetTags(NormalizedSnapshotSpanCollection col)
         {
-            // Adjust the requested SnapshotSpan to be the overarching SnapshotSpan of the 
-            // request.  
-            var span = col.GetOverarchingSpan();
-            AdjustRequestSpan(span);
+            AdjustRequestSpan(col);
+            if (col.Count == 0)
+            {
+                return Enumerable.Empty<ITagSpan<TTag>>();
+            }
 
             // Even though it's easier don't do a GetTags request for the overarching SnapshotSpan
             // of the request.  It's possible for the overarching SnapshotSpan to have an order

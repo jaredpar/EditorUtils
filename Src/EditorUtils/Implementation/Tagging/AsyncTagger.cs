@@ -322,7 +322,7 @@ namespace EditorUtils.Implementation.Tagging
         }
 
         /// <summary>
-        /// The cache of ITag<'TTag> values
+        /// The cache of ITag values
         /// </summary>
         internal TagCache TagCacheData
         {
@@ -394,10 +394,7 @@ namespace EditorUtils.Implementation.Tagging
         /// </summary>
         internal IEnumerable<ITagSpan<TTag>> GetTags(NormalizedSnapshotSpanCollection col)
         {
-            // Note that we only use the overarching span to track what data we are responsible 
-            // for in a
-            var overarchingSpan = col.GetOverarchingSpan();
-            AdjustRequestSpan(overarchingSpan);
+            AdjustRequestSpan(col);
 
             if (col.Count == 1)
             {
@@ -416,7 +413,10 @@ namespace EditorUtils.Implementation.Tagging
                         : all.Concat(current);
                 }
 
-                return all;
+                // Must handle the empty NormalizedSnasphotSpanCollection case
+                return all == null
+                    ? EmptyTagList
+                    : all;
             }
         }
 
@@ -693,7 +693,7 @@ namespace EditorUtils.Implementation.Tagging
                                 tagLineRange = SnapshotLineRange.CreateForLineNumberRange(tagLineRange.Snapshot, unvisited.Value.StartLineNumber, unvisited.Value.LastLineNumber).Value;
                                 tagList = asyncTaggerSource.GetTagsInBackground(data, tagLineRange.ExtentIncludingLineBreak, cancellationToken);
                             }
-                            catch
+                            catch (Exception e)
                             {
                                 // Ignore exceptions that are thrown by IAsyncTaggerSource.  If the tagger threw then we consider
                                 // the tags to be nothing for this span.  
@@ -701,6 +701,7 @@ namespace EditorUtils.Implementation.Tagging
                                 // It's important that we register some value here.  If we register nothing then the foreground will
                                 // never see this slot as fulfilled and later requests for this span will eventually queue up another
                                 // background request
+                                EditorUtilsTrace.TraceInfo("AsyncTagger source exception in background processing {0}", e);
                             }
                             visited.Add(tagLineRange.LineRange);
                             onProgress(tagLineRange, tagList);
@@ -781,9 +782,15 @@ namespace EditorUtils.Implementation.Tagging
             }
         }
 
-        private void AdjustRequestSpan(SnapshotSpan requestSpan)
+        private void AdjustRequestSpan(NormalizedSnapshotSpanCollection col)
         {
-            _cachedOverarchingRequestSpan = TaggerUtil.AdjustRequestedSpan(_cachedOverarchingRequestSpan, requestSpan);
+            if (col.Count > 0)
+            {
+                // Note that we only use the overarching span to track what data we are responsible 
+                // for in a
+                var requestSpan = col.GetOverarchingSpan();
+                _cachedOverarchingRequestSpan = TaggerUtil.AdjustRequestedSpan(_cachedOverarchingRequestSpan, requestSpan);
+            }
         }
 
         /// <summary>

@@ -27,7 +27,7 @@ namespace EditorUtils.UnitTest
             private List<ITagSpan<TextMarkerTag>> _promptTags;
             private List<ITagSpan<TextMarkerTag>> _backgroundTags;
             private Action<string, SnapshotSpan> _backgroundCallback;
-            private Func<SnapshotSpan, SnapshotSpan?> _backgroundFunc;
+            private Func<SnapshotSpan, ReadOnlyCollection<ITagSpan<TextMarkerTag>>> _backgroundFunc;
 
             internal bool InMainThread
             {
@@ -62,6 +62,22 @@ namespace EditorUtils.UnitTest
             }
 
             internal void SetBackgroundFunc(Func<SnapshotSpan, SnapshotSpan?> func)
+            {
+                _backgroundFunc =
+                    span =>
+                    {
+                        var item = func(span);
+                        if (item.HasValue)
+                        {
+                            var tagSpan = CreateTagSpan(item.Value);
+                            return new ReadOnlyCollection<ITagSpan<TextMarkerTag>>(new[] { tagSpan });
+                        }
+
+                        return new ReadOnlyCollection<ITagSpan<TextMarkerTag>>(new List<ITagSpan<TextMarkerTag>>());
+                    };
+            }
+
+            internal void SetBackgroundFunc(Func<SnapshotSpan, ReadOnlyCollection<ITagSpan<TextMarkerTag>>> func)
             {
                 _backgroundFunc = func;
             }
@@ -105,14 +121,7 @@ namespace EditorUtils.UnitTest
 
                 if (_backgroundFunc != null)
                 {
-                    var item = _backgroundFunc(span);
-                    if (item.HasValue)
-                    {
-                        var tagSpan = CreateTagSpan(item.Value);
-                        return new ReadOnlyCollection<ITagSpan<TextMarkerTag>>(new[] { tagSpan });
-                    }
-
-                    return new ReadOnlyCollection<ITagSpan<TextMarkerTag>>(new List<ITagSpan<TextMarkerTag>>());
+                    return _backgroundFunc(span);
                 }
 
                 if (_backgroundTags != null)
@@ -179,6 +188,12 @@ namespace EditorUtils.UnitTest
             {
                 _synchronizationContext.Uninstall();
             }
+
+            var disposable = _asyncTagger as IDisposable;
+            if (disposable != null)
+            {
+                disposable.Dispose();
+            }
         }
 
         protected void Create(params string[] lines)
@@ -236,16 +251,28 @@ namespace EditorUtils.UnitTest
             return GetTagsFull(span, out unused);
         }
 
+        protected List<ITagSpan<TextMarkerTag>> GetTagsFull(NormalizedSnapshotSpanCollection col)
+        {
+            bool unused;
+            return GetTagsFull(col, out unused);
+        }
+
         protected List<ITagSpan<TextMarkerTag>> GetTagsFull(SnapshotSpan span, out bool wasAsync)
+        {
+            var col = new NormalizedSnapshotSpanCollection(span);
+            return GetTagsFull(col, out wasAsync);
+        }
+
+        protected List<ITagSpan<TextMarkerTag>> GetTagsFull(NormalizedSnapshotSpanCollection col, out bool wasAsync)
         {
             Assert.False(_asyncTagger.AsyncBackgroundRequestData.HasValue);
             wasAsync = false;
-            var tags = _asyncTagger.GetTags(new NormalizedSnapshotSpanCollection(span)).ToList();
+            var tags = _asyncTagger.GetTags(col).ToList();
+
             if (_asyncTagger.AsyncBackgroundRequestData.HasValue)
             {
-                _asyncTagger.AsyncBackgroundRequestData.Value.Task.Wait();
-                _synchronizationContext.RunAll();
-                tags = _asyncTagger.GetTags(new NormalizedSnapshotSpanCollection(span)).ToList();
+                WaitForBackgroundToComplete();
+                tags = _asyncTagger.GetTags(col).ToList();
                 wasAsync = true;
             }
 
@@ -612,6 +639,51 @@ namespace EditorUtils.UnitTest
                 var list = GetTagsFull(_textBuffer.GetExtent());
                 Assert.NotNull(list);
             }
+
+            [Fact]
+            public void SourceSpansMultiple_AllRelevant()
+            {
+                Create("cat", "dog", "fish", "tree dog");
+                _asyncTaggerSource.SetBackgroundFunc(span => TestUtils.GetDogTags(span));
+                var col = new NormalizedSnapshotSpanCollection(new[] 
+                    { 
+                        _textBuffer.GetLineRange(1).ExtentIncludingLineBreak,
+                        _textBuffer.GetLineRange(3).ExtentIncludingLineBreak
+                    });
+                var tags = GetTagsFull(col);
+                Assert.Equal(
+                    new [] { _textBuffer.GetLineSpan(1, 0, 3), _textBuffer.GetLineSpan(3, 5, 3) },
+                    tags.Select(x => x.Span));
+            }
+
+            [Fact]
+            public void SourceSpansMultiple_OneRelevant()
+            {
+                Create("cat", "dog", "fish", "tree dog");
+                _asyncTaggerSource.SetBackgroundFunc(span => TestUtils.GetDogTags(span));
+                var col = new NormalizedSnapshotSpanCollection(new[] 
+                    { 
+                        _textBuffer.GetLineRange(0).ExtentIncludingLineBreak,
+                        _textBuffer.GetLineRange(3).ExtentIncludingLineBreak
+                    });
+                var tags = GetTagsFull(col);
+                Assert.Equal(
+                    new [] { _textBuffer.GetLineSpan(3, 5, 3) },
+                    tags.Select(x => x.Span));
+            }
+
+            /// <summary>
+            /// This should never happen in the reald world but this is an API so treat it like one
+            /// </summary>
+            [Fact]
+            public void SourceSpansNone()
+            {
+                Create("cat", "dog", "fish", "tree dog");
+                _asyncTaggerSource.SetBackgroundFunc(span => TestUtils.GetDogTags(span));
+                var col = new NormalizedSnapshotSpanCollection();
+                var tags = GetTagsFull(col);
+                Assert.Equal(0, tags.Count);
+            }
         }
 
         public sealed class OnChangedTest : AsyncTaggerTest
@@ -815,13 +887,99 @@ namespace EditorUtils.UnitTest
             {
                 Create("cat", "dog", "fish", "tree");
                 _asyncTaggerSource.Delay = null;
-                _asyncTaggerSource.SetBackgroundFunc(_ => { throw new Exception("test"); });
+                _asyncTaggerSource.SetBackgroundCallback((x, y) => { throw new Exception("test"); });
                 var lineRange = _textBuffer.GetLineRange(0, 0);
                 _asyncTagger.GetTags(lineRange.Extent);
                 WaitForBackgroundToComplete();
 
                 Assert.True(_asyncTagger.TagCacheData.BackgroundCacheData.HasValue);
                 Assert.True(_asyncTagger.TagCacheData.BackgroundCacheData.Value.VisitedCollection.Contains(lineRange.LineRange));
+            }
+
+            /// <summary>
+            /// Send a request that is much bigger than the standard chunk size.  Ensure that we get all 
+            /// of the values back
+            /// </summary>
+            [Fact]
+            public void ChunkedData()
+            {
+                var list = new List<String>();
+                for (int i = 0; i < 10; i++)
+                {
+                    list.Add("dog chases cat");
+                    list.Add("fish around tree");
+                    list.Add("where am i");
+                    for (int j = 0; j < 7; j++)
+                    {
+                        list.Add("a");
+                    }
+                }
+                Create(list.ToArray());
+                _asyncTagger.ChunkCount = 10;
+                _asyncTaggerSource.Delay = null;
+                _asyncTaggerSource.SetBackgroundFunc(span => TestUtils.GetDogTags(span));
+                _asyncTagger.GetTags(_textBuffer.GetExtent());
+                WaitForBackgroundToComplete();
+
+                var tags = _asyncTagger.GetTags(_textBuffer.GetExtent()).ToList();
+                Assert.Equal(10, tags.Count);
+                for (int i = 0; i < tags.Count; i++)
+                {
+                    var span = tags[i].Span;
+                    Assert.Equal("dog", span.GetText());
+                    Assert.Equal(0, span.Start.GetContainingLine().LineNumber % 10);
+                }
+            }
+
+            [Fact]
+            public void AfterEditWithTrackingData()
+            {
+                Create("dog", "cat", "fish");
+                _asyncTaggerSource.SetBackgroundFunc(span => TestUtils.GetDogTags(span));
+                GetTagsFull(_textBuffer.GetExtent());
+                _asyncTagger.TagCacheData = new AsyncTaggerType.TagCache(
+                    _asyncTagger.TagCacheData.BackgroundCacheData,
+                    CreateTrackingCacheData(_textBuffer.GetSpan(0, 1), _textBuffer.GetSpan(0, 2)));
+                _textBuffer.Replace(new Span(0, 0), "hello world ");
+                var tags = GetTagsFull(_textBuffer.GetExtent());
+                Assert.Equal(
+                    new[] { "dog" },
+                    tags.Select(x => x.Span.GetText()));
+            
+            }
+
+            /// <summary>
+            /// There is a race condition in the code base.  It occurs when a call to GetTags occurs for 
+            /// uncached data while the async background request is still alive but has already completed
+            /// processing.  The background thread is done but the foreground thread thinks it is processing
+            /// the data.
+            /// 
+            /// The code works around this by seein the unfinished work after we get back to the UI thread
+            /// and reschedules the request automatically
+            /// </summary>
+            [Fact]
+            public void GetTagsRaceCondition()
+            {
+                Create("dog", "cat", "fish", "dog");
+                _asyncTaggerSource.SetBackgroundFunc(span => TestUtils.GetDogTags(span));
+                _asyncTagger.GetTags(_textBuffer.GetLineRange(0).Extent);
+                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
+
+                // Background is done.  Because we control the synchronization context though the foreground 
+                // thread still sees it as active and hence will continue to queue data on it 
+                _asyncTagger.AsyncBackgroundRequestData.Value.Task.Wait();
+                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
+                _asyncTagger.GetTags(_textBuffer.GetLineRange(3).Extent);
+
+                // Clear the queue, the missing work will be seen and immedieatly requeued
+                _synchronizationContext.RunAll();
+                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
+                WaitForBackgroundToComplete();
+
+                var tags = _asyncTagger.GetTags(_textBuffer.GetExtent());
+                Assert.Equal(
+                    new[] { _textBuffer.GetLineSpan(0, 3), _textBuffer.GetLineSpan(3, 3) },
+                    tags.Select(x => x.Span));
             }
         }
     }
