@@ -132,6 +132,13 @@ namespace WordUnderCaret
             word = null;
 
             var point = _textView.GetCaretPoint();
+
+            // If we are at the end of the snasphot there is no word
+            if (point.Position == _textView.TextSnapshot.Length)
+            {
+                return false;
+            }
+
             var c = point.GetChar();
             if (!Char.IsLetter(c))
             {
