@@ -3,17 +3,17 @@ using Xunit;
 
 namespace EditorUtils.UnitTest
 {
-    public sealed class LineRangeVisitedTest
+    public sealed class NormalizedLineRangeCollectionTest
     {
-        private LineRangeVisited Create(params LineRange[] lineRanges)
+        private NormalizedLineRangeCollection Create(params LineRange[] lineRanges)
         {
-            return new LineRangeVisited(lineRanges);
+            return new NormalizedLineRangeCollection(lineRanges);
         }
 
         [Fact]
         public void Add_Simple()
         {
-            var visited = new LineRangeVisited();
+            var visited = new NormalizedLineRangeCollection();
             visited.Add(LineRange.CreateFromBounds(0, 2));
             Assert.Equal(LineRange.CreateFromBounds(0, 2), visited.LineRange.Value);
         }

@@ -77,7 +77,7 @@
     <Compile Include="Implementation\Tagging\TaggerUtil.cs" />
     <Compile Include="Implementation\Utilities\EqualityUtility.cs" />
     <Compile Include="Implementation\Utilities\ImmutableSnapshotSpanStack.cs" />
-    <Compile Include="Implementation\Utilities\LineRangeVisited.cs" />
+    <Compile Include="Implementation\Utilities\NormalizedLineRangeCollection.cs" />
     <Compile Include="Implementation\Utilities\ProtectedOperations.cs" />
     <Compile Include="Implementation\Utilities\SingleItemQueue.cs" />
     <Compile Include="Implementation\Utilities\ThreadedLineRangeStack.cs" />

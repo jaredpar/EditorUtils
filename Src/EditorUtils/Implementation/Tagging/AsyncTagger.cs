@@ -617,7 +617,7 @@ namespace EditorUtils.Implementation.Tagging
             {
                 // Keep track of the LineRange values which we've already provided tags for.  Don't 
                 // duplicate the work
-                var visited = new LineRangeVisited();
+                var visited = new NormalizedLineRangeCollection();
                 var toProcess = new Queue<SnapshotLineRange>();
 
                 // *** This value can be wrong *** 
