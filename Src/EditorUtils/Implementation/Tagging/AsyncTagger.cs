@@ -214,7 +214,6 @@ namespace EditorUtils.Implementation.Tagging
 
         #endregion
 
-
         /// This number was chosen virtually at random.  In extremely large files it's legal
         /// to ask for the tags for the entire file (and sadly very often done).  When this 
         /// happens even an async tagger breaks down a bit.  It won't cause the UI to hang but
