@@ -189,7 +189,7 @@ namespace EditorUtils.UnitTest
         internal AsyncTaggerType.BackgroundCacheData CreateBackgroundCacheData(SnapshotSpan source, params SnapshotSpan[] tagSpans)
         {
             return new AsyncTaggerType.BackgroundCacheData(
-                source,
+                SnapshotLineRange.CreateForSpan(source),
                 tagSpans.Select(CreateTagSpan).ToReadOnlyCollection());
         }
 

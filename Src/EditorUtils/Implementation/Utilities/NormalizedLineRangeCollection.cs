@@ -95,6 +95,11 @@ namespace EditorUtils.Implementation.Utilities
             _list.Clear();
         }
 
+        internal NormalizedLineRangeCollection Copy()
+        {
+            return new NormalizedLineRangeCollection(_list);
+        }
+
         internal LineRange? GetUnvisited(LineRange lineRange)
         {
             foreach (var current in _list)

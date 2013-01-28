@@ -26,27 +26,59 @@ namespace EditorUtils.Implementation.Tagging
 
         #region BackgroundCacheData
 
+        /// <summary>
+        /// This holds the set of data which is currently known from the background thread.  Data in 
+        /// this collection should be considered final for the given Snapshot.  It will only change
+        /// if the AsyncTaggerSource itself raises a Changed event (in which case we discard all 
+        /// background data).  
+        /// </summary>
         internal struct BackgroundCacheData
         {
-            internal readonly SnapshotSpan Span;
+            internal readonly ITextSnapshot Snapshot;
+
+            /// <summary>
+            /// Set of line ranges for which tags are known
+            /// </summary>
+            internal readonly NormalizedLineRangeCollection VisitedCollection;
+
+            /// <summary>
+            /// Set of known tags
+            /// </summary>
             internal readonly ReadOnlyCollection<ITagSpan<TTag>> TagList;
 
-            internal ITextSnapshot Snapshot
+            internal SnapshotSpan Span
             {
-                get { return Span.Snapshot; }
+                get
+                {
+                    var range = VisitedCollection.OverarchingLineRange;
+                    if (!range.HasValue)
+                    {
+                        return new SnapshotSpan(Snapshot, 0, 0);
+                    }
+
+                    var lineRange = new SnapshotLineRange(Snapshot, range.Value.StartLineNumber, range.Value.Count);
+                    return lineRange.ExtentIncludingLineBreak;
+                }
             }
 
-            internal BackgroundCacheData(SnapshotSpan span, ReadOnlyCollection<ITagSpan<TTag>> tagList)
+            internal BackgroundCacheData(SnapshotLineRange lineRange, ReadOnlyCollection<ITagSpan<TTag>> tagList)
             {
-                Span = span;
+                Snapshot = lineRange.Snapshot;
+                VisitedCollection = new NormalizedLineRangeCollection();
+                VisitedCollection.Add(lineRange.LineRange);
+                TagList = tagList;
+            }
+
+            internal BackgroundCacheData(ITextSnapshot snapshot, NormalizedLineRangeCollection visitedCollection, ReadOnlyCollection<ITagSpan<TTag>> tagList)
+            {
+                Snapshot = snapshot;
+                VisitedCollection = visitedCollection;
                 TagList = tagList;
             }
 
             /// <summary>
             /// Create a TrackingCacheData instance from this BackgroundCacheData
             /// </summary>
-            /// <param name="snapshot"></param>
-            /// <returns></returns>
             internal TrackingCacheData CreateTrackingCacheData()
             {
                 // Create the list.  Initiate an ITrackingSpan for every SnapshotSpan present
@@ -60,7 +92,7 @@ namespace EditorUtils.Implementation.Tagging
                     .ToReadOnlyCollection();
 
                 return new TrackingCacheData(
-                    Span.Snapshot.CreateTrackingSpan(Span, SpanTrackingMode.EdgeInclusive),
+                    Snapshot.CreateTrackingSpan(Span, SpanTrackingMode.EdgeInclusive),
                     trackingList);
             }
         }
@@ -300,20 +332,21 @@ namespace EditorUtils.Implementation.Tagging
 
         /// <summary>
         /// Given a new tag list determine if the results differ from what we would've been 
-        /// returning from our TrackingCacheData over the same SnapshotSpan
+        /// returning from our TrackingCacheData over the same SnapshotSpan.  Often times the 
+        /// new data is the same as the old hence we don't need to produce any changed information
+        /// to the buffer
         /// </summary>
         internal bool DidTagsChange(SnapshotSpan span, ReadOnlyCollection<ITagSpan<TTag>> tagList)
         {
             if (!_tagCache.TrackingCacheData.HasValue)
             {
                 // Nothing in the tracking cache so it changed if there is anything in the new
-                // collection
+                // collection.  If the new collection has anything then it changed
                 return tagList.Count > 0;
             }
 
             var trackingCacheData = _tagCache.TrackingCacheData.Value;
             var trackingTagList = GetTagsFromCache(span, trackingCacheData).TagList;
-
             if (trackingTagList.Count != tagList.Count)
             {
                 return true;
@@ -448,21 +481,20 @@ namespace EditorUtils.Implementation.Tagging
         /// </summary>
         private TagLookupResult GetTagsFromCache(SnapshotSpan span, BackgroundCacheData backgroundCacheData)
         {
+            // If the requested span doesn't even intersect with the overarching SnapshotSpan
+            // of the cached data in the background then a more exhaustive search isn't needed
+            // at this time
             var cachedSpan = backgroundCacheData.Span;
-            if (cachedSpan.Contains(span))
+            if (!cachedSpan.IntersectsWith(span))
             {
-                return TagLookupResult.CreateComplete(backgroundCacheData.TagList);
+                return TagLookupResult.Empty;
             }
 
-            if (cachedSpan.IntersectsWith(span))
-            {
-                // The requested span is at least partially within the cached region.  Return 
-                // the data that is available and schedule a background request to get the 
-                // rest
-                return TagLookupResult.CreatePartial(backgroundCacheData.TagList);
-            }
-
-            return TagLookupResult.Empty;
+            var lineRange = SnapshotLineRange.CreateForSpan(span);
+            var unvisited = backgroundCacheData.VisitedCollection.GetUnvisited(lineRange.LineRange);
+            return unvisited.HasValue
+                ? TagLookupResult.CreatePartial(backgroundCacheData.TagList)
+                : TagLookupResult.CreateComplete(backgroundCacheData.TagList);
         }
 
         /// <summary>
@@ -563,6 +595,18 @@ namespace EditorUtils.Implementation.Tagging
                 }
             }
 
+            // The background thread needs to know the set of values we have already queried 
+            // for.  Send a copy since this data will be mutated from a background thread
+            NormalizedLineRangeCollection localVisited;
+            if (_tagCache.BackgroundCacheData.HasValue && _tagCache.BackgroundCacheData.Value.Snapshot == span.Snapshot)
+            {
+                localVisited = _tagCache.BackgroundCacheData.Value.VisitedCollection.Copy();
+            }
+            else
+            {
+                localVisited = new NormalizedLineRangeCollection();
+            }
+
             // Function which finally gets the tags.  This is run on a background thread and can
             // throw as the implementor is encouraged to use CancellationToken::ThrowIfCancelled
             var localAsyncTaggerSource = _asyncTaggerSource;
@@ -572,6 +616,7 @@ namespace EditorUtils.Implementation.Tagging
                 data,
                 localChunkCount,
                 threadedLineRangeStack,
+                localVisited,
                 cancellationToken,
                 (completeReason) => synchronizationContext.Post(_ => OnGetTagsInBackgroundComplete(completeReason, threadedLineRangeStack, cancellationTokenSource), null),
                 (processedLineRange, tagList) => synchronizationContext.Post(_ => OnGetTagsInBackgroundProgress(cancellationTokenSource, processedLineRange, tagList), null));
@@ -607,6 +652,7 @@ namespace EditorUtils.Implementation.Tagging
             TData data,
             int chunkCount, 
             ThreadedLineRangeStack threadedLineRangeStack,
+            NormalizedLineRangeCollection visited,
             CancellationToken cancellationToken,
             Action<CompleteReason> onComplete,
             Action<SnapshotLineRange, ReadOnlyCollection<ITagSpan<TTag>>> onProgress)
@@ -616,7 +662,6 @@ namespace EditorUtils.Implementation.Tagging
             {
                 // Keep track of the LineRange values which we've already provided tags for.  Don't 
                 // duplicate the work
-                var visited = new NormalizedLineRangeCollection();
                 var toProcess = new Queue<SnapshotLineRange>();
 
                 // *** This value can be wrong *** 
@@ -854,16 +899,18 @@ namespace EditorUtils.Implementation.Tagging
                 return;
             }
 
-            var span = lineRange.ExtentIncludingLineBreak;
-            var newData = new BackgroundCacheData(span, tagList);
-
-            // Merge the existing background data if it's present
+            // Merge the existing background data if it's present and on the same ITextSnapshot
+            BackgroundCacheData newData;
             if (_tagCache.BackgroundCacheData.HasValue && _tagCache.BackgroundCacheData.Value.Snapshot == lineRange.Snapshot)
             {
-                var backgroundCacheData = _tagCache.BackgroundCacheData.Value;
-                newData = new BackgroundCacheData(
-                    newData.Span.CreateOverarching(backgroundCacheData.Span),
-                    newData.TagList.Concat(backgroundCacheData.TagList).ToReadOnlyCollection());
+                var oldData = _tagCache.BackgroundCacheData.Value;
+                var tags = oldData.TagList.Concat(tagList).ToReadOnlyCollection();
+                oldData.VisitedCollection.Add(lineRange.LineRange);
+                newData = new BackgroundCacheData(lineRange.Snapshot, oldData.VisitedCollection, tags);
+            }
+            else
+            {
+                newData = new BackgroundCacheData(lineRange, tagList);
             }
 
             _tagCache = new TagCache(newData, _tagCache.TrackingCacheData);
@@ -873,6 +920,7 @@ namespace EditorUtils.Implementation.Tagging
             // so then for a given SnapshotSpan we've already returned a result which was correct.  Raising
             // TagsChanged again for that SnapshotSpan will cause needless work to ocur (and potentially
             // more layouts
+            var span = lineRange.ExtentIncludingLineBreak;
             if (DidTagsChange(span, tagList))
             {
                 RaiseTagsChanged(span);
