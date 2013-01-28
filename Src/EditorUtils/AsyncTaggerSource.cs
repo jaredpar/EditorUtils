@@ -56,7 +56,7 @@ namespace EditorUtils
         /// Get the data needed in the background thread from the specified SnapshotSpan.  This is called on
         /// the main thread
         /// </summary>
-        protected abstract TData GetDataForSpan(SnapshotSpan span);
+        protected abstract TData GetDataForSnapshot(ITextSnapshot snapshot);
 
         /// <summary>
         /// Get the tags for the specified span.  This is called on the background thread
@@ -80,9 +80,9 @@ namespace EditorUtils
             get { return TextViewOptional; }
         }
 
-        TData IAsyncTaggerSource<TData, TTag>.GetDataForSpan(SnapshotSpan span)
+        TData IAsyncTaggerSource<TData, TTag>.GetDataForSnapshot(ITextSnapshot snapshot)
         {
-            return GetDataForSpan(span);
+            return GetDataForSnapshot(snapshot);
         }
 
         ReadOnlyCollection<ITagSpan<TTag>> IAsyncTaggerSource<TData, TTag>.GetTagsInBackground(TData data, SnapshotSpan span, CancellationToken cancellationToken)

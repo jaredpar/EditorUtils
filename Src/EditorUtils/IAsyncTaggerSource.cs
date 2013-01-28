@@ -43,7 +43,7 @@ namespace EditorUtils
         ///
         /// Called from the main thread only
         /// </summary>
-        TData GetDataForSpan(SnapshotSpan span);
+        TData GetDataForSnapshot(ITextSnapshot snapshot);
 
         /// <summary>
         /// Return the applicable tags for the given SnapshotSpan instance.  This will be

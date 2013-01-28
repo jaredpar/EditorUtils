@@ -20,11 +20,11 @@ namespace EditorUtils.UnitTest.Utils
 
         public void RunAll()
         {
-            foreach (var cur in _list)
+            while (_list.Count > 0)
             {
-                cur();
+                _list[0]();
+                _list.RemoveAt(0);
             }
-            _list.Clear();
         }
 
         public void Install()

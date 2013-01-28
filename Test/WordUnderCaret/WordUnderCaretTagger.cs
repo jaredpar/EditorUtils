@@ -170,7 +170,7 @@ namespace WordUnderCaret
             return false;
         }
 
-        protected override string GetDataForSpan(SnapshotSpan span)
+        protected override string GetDataForSnapshot(ITextSnapshot snapshot)
         {
             string word;
             if (!TryGetWordUnderCaret(out word))

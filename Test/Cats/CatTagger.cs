@@ -105,7 +105,7 @@ namespace Cats
             return false;
         }
 
-        protected override string GetDataForSpan(SnapshotSpan span)
+        protected override string GetDataForSnapshot(ITextSnapshot snapshot)
         {
             return string.Empty;
         }
