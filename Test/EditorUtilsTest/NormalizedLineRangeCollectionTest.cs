@@ -17,7 +17,7 @@ namespace EditorUtils.UnitTest
             {
                 var visited = new NormalizedLineRangeCollection();
                 visited.Add(LineRange.CreateFromBounds(0, 2));
-                Assert.Equal(LineRange.CreateFromBounds(0, 2), visited.LineRange.Value);
+                Assert.Equal(LineRange.CreateFromBounds(0, 2), visited.OverarchingLineRange.Value);
             }
 
             /// <summary>
@@ -29,8 +29,8 @@ namespace EditorUtils.UnitTest
             {
                 var visited = Create(new LineRange(1, 4));
                 visited.Add(LineRange.CreateFromBounds(3, 5));
-                Assert.Equal(1, visited.List.Count);
-                Assert.Equal(LineRange.CreateFromBounds(1, 5), visited.LineRange.Value);
+                Assert.Equal(1, visited.Count);
+                Assert.Equal(LineRange.CreateFromBounds(1, 5), visited.OverarchingLineRange.Value);
             }
 
             /// <summary>
@@ -41,9 +41,9 @@ namespace EditorUtils.UnitTest
             {
                 var visited = Create(LineRange.CreateFromBounds(0, 2));
                 visited.Add(LineRange.CreateFromBounds(4, 6));
-                Assert.Equal(2, visited.List.Count);
-                Assert.Equal(LineRange.CreateFromBounds(0, 2), visited.List[0]);
-                Assert.Equal(LineRange.CreateFromBounds(4, 6), visited.List[1]);
+                Assert.Equal(2, visited.Count);
+                Assert.Equal(LineRange.CreateFromBounds(0, 2), visited[0]);
+                Assert.Equal(LineRange.CreateFromBounds(4, 6), visited[1]);
             }
 
             /// <summary>
@@ -54,9 +54,9 @@ namespace EditorUtils.UnitTest
             {
                 var visited = Create(LineRange.CreateFromBounds(4, 6));
                 visited.Add(LineRange.CreateFromBounds(0, 2));
-                Assert.Equal(2, visited.List.Count);
-                Assert.Equal(LineRange.CreateFromBounds(0, 2), visited.List[0]);
-                Assert.Equal(LineRange.CreateFromBounds(4, 6), visited.List[1]);
+                Assert.Equal(2, visited.Count);
+                Assert.Equal(LineRange.CreateFromBounds(0, 2), visited[0]);
+                Assert.Equal(LineRange.CreateFromBounds(4, 6), visited[1]);
             }
 
             /// <summary>
@@ -68,10 +68,10 @@ namespace EditorUtils.UnitTest
             {
                 var visited = Create(LineRange.CreateFromBounds(0, 1));
                 visited.Add(LineRange.CreateFromBounds(3, 4));
-                Assert.Equal(2, visited.List.Count);
+                Assert.Equal(2, visited.Count);
                 visited.Add(LineRange.CreateFromBounds(2, 2));
-                Assert.Equal(1, visited.List.Count);
-                Assert.Equal(LineRange.CreateFromBounds(0, 4), visited.LineRange.Value);
+                Assert.Equal(1, visited.Count);
+                Assert.Equal(LineRange.CreateFromBounds(0, 4), visited.OverarchingLineRange.Value);
             }
 
             /// <summary>
@@ -85,10 +85,43 @@ namespace EditorUtils.UnitTest
                     LineRange.CreateFromBounds(0, 1),
                     LineRange.CreateFromBounds(3, 4),
                     LineRange.CreateFromBounds(6, 7));
-                Assert.Equal(3, visited.List.Count);
+                Assert.Equal(3, visited.Count);
                 visited.Add(LineRange.CreateFromBounds(1, 6));
-                Assert.Equal(1, visited.List.Count);
-                Assert.Equal(LineRange.CreateFromBounds(0, 7), visited.LineRange.Value);
+                Assert.Equal(1, visited.Count);
+                Assert.Equal(LineRange.CreateFromBounds(0, 7), visited.OverarchingLineRange.Value);
+            }
+
+            /// <summary>
+            /// The case where the LineRange fits between 2 existing items according to the start
+            /// line but actually intersects the first item
+            /// </summary>
+            [Fact]
+            public void IntesectBefore()
+            {
+                var visited = Create(
+                    LineRange.CreateFromBounds(0, 3),
+                    LineRange.CreateFromBounds(6, 7));
+                Assert.Equal(2, visited.Count);
+                visited.Add(LineRange.CreateFromBounds(2, 4));
+                Assert.Equal(2, visited.Count);
+                Assert.Equal(LineRange.CreateFromBounds(0, 4), visited[0]);
+                Assert.Equal(LineRange.CreateFromBounds(6, 7), visited[1]);
+            }
+
+            /// <summary>
+            /// The case where this fits behind the last element in the collection according to the
+            /// start line but actually intersects the last item
+            /// </summary>
+            [Fact]
+            public void IntersectLast()
+            {
+                var visited = Create(
+                    LineRange.CreateFromBounds(0, 3),
+                    LineRange.CreateFromBounds(6, 9));
+                visited.Add(LineRange.CreateFromBounds(7, 10));
+                Assert.Equal(
+                    new[] { LineRange.CreateFromBounds(0, 3), LineRange.CreateFromBounds(6, 10) },
+                    visited);
             }
 
             /// <summary>
@@ -101,8 +134,8 @@ namespace EditorUtils.UnitTest
                     LineRange.CreateFromBounds(0, 1),
                     LineRange.CreateFromBounds(3, 4));
                 visited.Add(LineRange.CreateFromBounds(2, 2));
-                Assert.Equal(1, visited.List.Count);
-                Assert.Equal(LineRange.CreateFromBounds(0, 4), visited.LineRange.Value);
+                Assert.Equal(1, visited.Count);
+                Assert.Equal(LineRange.CreateFromBounds(0, 4), visited.OverarchingLineRange.Value);
             }
         }
 
@@ -117,8 +150,8 @@ namespace EditorUtils.UnitTest
                 var visited = Create(
                     LineRange.CreateFromBounds(0, 1),
                     LineRange.CreateFromBounds(3, 4));
-                Assert.Equal(LineRange.CreateFromBounds(0, 1), visited.List[0]);
-                Assert.Equal(LineRange.CreateFromBounds(3, 4), visited.List[1]);
+                Assert.Equal(LineRange.CreateFromBounds(0, 1), visited[0]);
+                Assert.Equal(LineRange.CreateFromBounds(3, 4), visited[1]);
             }
 
             /// <summary>
@@ -130,8 +163,8 @@ namespace EditorUtils.UnitTest
                 var visited = Create(
                     LineRange.CreateFromBounds(3, 4),
                     LineRange.CreateFromBounds(0, 1));
-                Assert.Equal(LineRange.CreateFromBounds(0, 1), visited.List[0]);
-                Assert.Equal(LineRange.CreateFromBounds(3, 4), visited.List[1]);
+                Assert.Equal(LineRange.CreateFromBounds(0, 1), visited[0]);
+                Assert.Equal(LineRange.CreateFromBounds(3, 4), visited[1]);
             }
 
             /// <summary>
@@ -144,8 +177,8 @@ namespace EditorUtils.UnitTest
                     LineRange.CreateFromBounds(3, 3),
                     LineRange.CreateFromBounds(4, 4),
                     LineRange.CreateFromBounds(0, 1));
-                Assert.Equal(LineRange.CreateFromBounds(0, 1), visited.List[0]);
-                Assert.Equal(LineRange.CreateFromBounds(3, 4), visited.List[1]);
+                Assert.Equal(LineRange.CreateFromBounds(0, 1), visited[0]);
+                Assert.Equal(LineRange.CreateFromBounds(3, 4), visited[1]);
             }
         }
     }
