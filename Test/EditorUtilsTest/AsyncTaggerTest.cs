@@ -550,7 +550,7 @@ namespace EditorUtils.UnitTest
                 var span = _textBuffer.GetSpan(0, 6);
                 _asyncTaggerSource.SetPromptTags(_textBuffer.GetSpan(0, 1));
                 _asyncTagger.GetTags(span);
-                Assert.Equal(span, _asyncTagger.CachedRequestSpan.Value);
+                Assert.Equal(span, _asyncTagger.CachedOverarchingRequestSpan.Value);
             }
 
             /// <summary>
@@ -629,7 +629,7 @@ namespace EditorUtils.UnitTest
             public void RaiseEvent()
             {
                 Create("hello world");
-                _asyncTagger.CachedRequestSpan = _textBuffer.GetLine(0).Extent;
+                _asyncTagger.CachedOverarchingRequestSpan = _textBuffer.GetLine(0).Extent;
                 var didRun = false;
                 _asyncTaggerInterface.TagsChanged += delegate
                 {

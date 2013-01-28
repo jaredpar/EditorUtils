@@ -77,6 +77,28 @@ namespace EditorUtils.Implementation.Tagging
             }
 
             /// <summary>
+            /// Determine tag cache state we have for the given SnapshotSpan
+            /// </summary>
+            internal TagCacheState GetTagCacheState(SnapshotSpan span)
+            {
+                // If the requested span doesn't even intersect with the overarching SnapshotSpan
+                // of the cached data in the background then a more exhaustive search isn't needed
+                // at this time
+                var cachedSpan = Span;
+                if (!cachedSpan.IntersectsWith(span))
+                {
+                    return TagCacheState.None;
+                }
+
+                var lineRange = SnapshotLineRange.CreateForSpan(span);
+                var unvisited = VisitedCollection.GetUnvisited(lineRange.LineRange);
+                return unvisited.HasValue
+                    ? TagCacheState.Partial
+                    : TagCacheState.Complete;
+            }
+
+
+            /// <summary>
             /// Create a TrackingCacheData instance from this BackgroundCacheData
             /// </summary>
             internal TrackingCacheData CreateTrackingCacheData()
@@ -144,6 +166,46 @@ namespace EditorUtils.Implementation.Tagging
 
                 return new TrackingCacheData(trackingSpan, tagList);
             }
+
+            /// <summary>
+            /// Does this tracking information contain tags over the given span in it's 
+            /// ITextSnapshot
+            /// </summary>
+            internal bool ContainsCachedTags(SnapshotSpan span)
+            {
+                var snapshot = span.Snapshot;
+                var trackingSpan = TrackingSpan.GetSpanSafe(snapshot);
+                return trackingSpan.HasValue;
+            }
+
+            /// <summary>
+            /// Get the cached tags on the given ITextSnapshot
+            ///
+            /// If this SnapshotSpan is coming from a different snapshot which is ahead of 
+            /// our current one we need to take special steps.  If we simply return nothing
+            /// and go to the background the tags will flicker on screen.  
+            ///
+            /// To work around this we try to map the tags to the requested ITextSnapshot. If
+            /// it succeeds then we use the mapped values and simultaneously kick off a background
+            /// request for the correct ones
+            /// </summary>
+            internal ReadOnlyCollection<ITagSpan<TTag>> GetCachedTags(ITextSnapshot snapshot)
+            {
+                // Mapping gave us at least partial information.  Will work for the transition
+                // period
+                return
+                    TrackingList
+                    .Select(
+                        tuple =>
+                        {
+                            var itemSpan = tuple.Item1.GetSpanSafe(snapshot);
+                            return itemSpan.HasValue
+                                ? (ITagSpan<TTag>)new TagSpan<TTag>(itemSpan.Value, tuple.Item2)
+                                : null;
+                        })
+                    .Where(tagSpan => tagSpan != null)
+                    .ToReadOnlyCollection();
+            }
         }
 
         #endregion
@@ -174,50 +236,26 @@ namespace EditorUtils.Implementation.Tagging
 
         #endregion
 
-        #region TagLookupResult
+        #region TagCacheState
 
-        internal enum TagLookupResultKind
+        internal enum TagCacheState
         {
             None,
             Partial,
             Complete
         }
 
-        internal struct TagLookupResult
+        #endregion
+
+        #region TagSource
+
+        [Flags]
+        internal enum TagSource
         {
-            internal readonly TagLookupResultKind Kind;
-            internal readonly ReadOnlyCollection<ITagSpan<TTag>> TagList;
-
-            internal bool IsComplete
-            {
-                get { return Kind == TagLookupResultKind.Complete; }
-            }
-
-            internal bool IsPartial
-            {
-                get { return Kind == TagLookupResultKind.Partial; }
-            }
-
-            private TagLookupResult(TagLookupResultKind kind, ReadOnlyCollection<ITagSpan<TTag>> tagList)
-            {
-                Kind = kind;
-                TagList = tagList;
-            }
-
-            internal static TagLookupResult Empty
-            {
-                get { return new TagLookupResult(TagLookupResultKind.None, EmptyTagList); }
-            }
-
-            internal static TagLookupResult CreateComplete(ReadOnlyCollection<ITagSpan<TTag>> tagList)
-            {
-                return new TagLookupResult(TagLookupResultKind.Complete, tagList);
-            }
-
-            internal static TagLookupResult CreatePartial(ReadOnlyCollection<ITagSpan<TTag>> tagList)
-            {
-                return new TagLookupResult(TagLookupResultKind.Partial, tagList);
-            }
+            None = 0x0,
+            Prompt = 0x1,
+            BackgroundCache = 0x2,
+            TrackingCache = 0x4,
         }
 
         #endregion
@@ -277,19 +315,24 @@ namespace EditorUtils.Implementation.Tagging
         private TagCache _tagCache;
 
         /// <summary>
-        /// The SnapshotSpan for which we've provided information via GetTags
+        /// The Overarching snapshot span for which we've received GetTags request.  At a glance
+        /// it would appear that using a NormalizedLineRangeCollection would be more efficient
+        /// here as it more accurately tracks the ranges.  That is true but we only use this 
+        /// for the cases where IAsyncTaggerSource declares that it changes.  It's not incorrect
+        /// to say the overarching SnapshotSpan has changed in this case.  And it's cheaper
+        /// to use the overaching span in the case of odd requests like time travel ones
         /// </summary>
-        private SnapshotSpan? _cachedRequestSpan = null;
+        private SnapshotSpan? _cachedOverarchingRequestSpan = null;
 
         private int _chunkCount = DefaultChunkCount;
 
         /// <summary>
         /// The SnapshotSpan for which we have given out tags
         /// </summary>
-        internal SnapshotSpan? CachedRequestSpan
+        internal SnapshotSpan? CachedOverarchingRequestSpan
         {
-            get { return _cachedRequestSpan; }
-            set { _cachedRequestSpan = value; }
+            get { return _cachedOverarchingRequestSpan; }
+            set { _cachedOverarchingRequestSpan = value; }
         }
 
         /// <summary>
@@ -338,7 +381,7 @@ namespace EditorUtils.Implementation.Tagging
         /// </summary>
         internal bool DidTagsChange(SnapshotSpan span, ReadOnlyCollection<ITagSpan<TTag>> tagList)
         {
-            if (!_tagCache.TrackingCacheData.HasValue)
+            if (!_tagCache.TrackingCacheData.HasValue || !_tagCache.TrackingCacheData.Value.ContainsCachedTags(span))
             {
                 // Nothing in the tracking cache so it changed if there is anything in the new
                 // collection.  If the new collection has anything then it changed
@@ -346,7 +389,7 @@ namespace EditorUtils.Implementation.Tagging
             }
 
             var trackingCacheData = _tagCache.TrackingCacheData.Value;
-            var trackingTagList = GetTagsFromCache(span, trackingCacheData).TagList;
+            var trackingTagList = trackingCacheData.GetCachedTags(span.Snapshot);
             if (trackingTagList.Count != tagList.Count)
             {
                 return true;
@@ -365,44 +408,38 @@ namespace EditorUtils.Implementation.Tagging
         /// </summary>
         internal IEnumerable<ITagSpan<TTag>> GetTags(NormalizedSnapshotSpanCollection col)
         {
-            var span = col.GetOverarchingSpan();
-            var lineRange = SnapshotLineRange.CreateForSpan(span);
-            EditorUtilsTrace.TraceInfo("AsyncTagger::GetTags {0} - {1}", lineRange.StartLineNumber, lineRange.LastLineNumber);
+            // Note that we only use the overarching span to track what data we are responsible 
+            // for in a
+            var overarchingSpan = col.GetOverarchingSpan();
+            AdjustRequestSpan(overarchingSpan);
 
-            AdjustRequestSpan(span);
-
-            IEnumerable<ITagSpan<TTag>> tagList;
-
-            // First try and see if the tagger can provide prompt data.  We want to avoid 
-            // creating Task<T> instances if possible.  
-            if (!TryGetTagsPrompt(span, out tagList))
+            if (col.Count > 1)
             {
-                var tagLookupResult = GetTagsFromCache(span);
-                switch (tagLookupResult.Kind)
+                EditorUtilsTrace.TraceInfo("AsyncTagger::GetTags Count {0}", col.Count);
+            }
+
+            var tagSource = TagSource.None;
+            IEnumerable<ITagSpan<TTag>> tagList = EmptyTagList;
+            foreach (var span in col)
+            {
+                var lineRange = SnapshotLineRange.CreateForSpan(span);
+                EditorUtilsTrace.TraceInfo("AsyncTagger::GetTags {0} - {1}", lineRange.StartLineNumber, lineRange.LastLineNumber);
+
+                // First try and see if the tagger can provide prompt data.  We want to avoid 
+                // creating Task<T> instances if possible.  
+                IEnumerable<ITagSpan<TTag>> promptTagList;
+                if (TryGetTagsPrompt(span, out promptTagList))
                 {
-                    case TagLookupResultKind.None:
-                        // Nothing was in the cache.  Kick off a background request to get it
-                        // and return and empty list for now
-                        GetTagsInBackground(span);
-                        tagList = EmptyTagList;
-                        break;
-                    case TagLookupResultKind.Partial:
+                    tagList = tagList.Concat(promptTagList);
+                    tagSource |= TagSource.Prompt;
+                    continue;
+                }
 
-                        // Tag list was partially avaliable.  Kick off a request to get the
-                        // complete data and return what we have for now
-                        GetTagsInBackground(span);
-                        tagList = tagLookupResult.TagList;
-                        break;
-
-                    case TagLookupResultKind.Complete:
-
-                        // No need to go through the background
-                        tagList = tagLookupResult.TagList;
-                        break;
-                    default:
-                        Contract.Fail();
-                        tagList = EmptyTagList;
-                        break;
+                if (!TryGetTagsFromCache(span, ref tagSource, ref tagList))
+                {
+                    // The request couldn't be fully satisfied from the cache or prompt data so
+                    // we will request the data in the background thread
+                    GetTagsInBackground(span);
                 }
             }
 
@@ -410,7 +447,7 @@ namespace EditorUtils.Implementation.Tagging
             // requested NormalizedSnapshotSpanCollection.  The cache lookups don't dig down and 
             // instead return all available tags.  We filter down the collection here to what's 
             // necessary.
-            return tagList.Where(tagSpan => tagSpan.Span.IntersectsWith(span));
+            return tagList.Where(tagSpan => tagSpan.Span.IntersectsWith(overarchingSpan));
         }
 
         private void Dispose()
@@ -441,102 +478,41 @@ namespace EditorUtils.Implementation.Tagging
         }
 
         /// <summary>
-        /// Get the tags from our cache
+        /// Attempt to get the tags from our cached data.  This will return true if the cache
+        /// fully satsifies the request
         /// </summary>
-        private TagLookupResult GetTagsFromCache(SnapshotSpan span)
+        private bool TryGetTagsFromCache(SnapshotSpan span, ref TagSource tagSource, ref IEnumerable<ITagSpan<TTag>> tagList)
         {
             // Update the cache to the given ITextSnapshot
             MaybeUpdateTagCacheToSnapshot(span.Snapshot);
 
             if (_tagCache.BackgroundCacheData.HasValue)
             {
-                var tagLookupResult = GetTagsFromCache(span, _tagCache.BackgroundCacheData.Value);
-                if (tagLookupResult.IsComplete)
+                var backgroundCacheData = _tagCache.BackgroundCacheData.Value;
+                switch (backgroundCacheData.GetTagCacheState(span))
                 {
-                    return tagLookupResult;
+                    case TagCacheState.Complete:
+                        MaybeAddBackground(backgroundCacheData, ref tagSource, ref tagList);
+                        return true;
+                    case TagCacheState.Partial:
+                        MaybeAddBackground(backgroundCacheData, ref tagSource, ref tagList);
+                        break;
+                    case TagCacheState.None:
+                        break;
                 }
-
-                // We are in the middle of processing a background request.  We have both the
-                // tracking data and the partial background data.  During the transition we should
-                // pull first from background and then from tracking 
-                if (_tagCache.TrackingCacheData.HasValue)
-                {
-                    var tagLookupResult2 = GetTagsFromCache(span, _tagCache.TrackingCacheData.Value);
-                    return TagLookupResult.CreatePartial(tagLookupResult.TagList.Concat(tagLookupResult2.TagList).ToReadOnlyCollection());
-                }
-
-                return tagLookupResult;
             }
 
+            // Let the tracking data provide partial information if it's available
             if (_tagCache.TrackingCacheData.HasValue)
             {
-                return GetTagsFromCache(span, _tagCache.TrackingCacheData.Value);
+                var trackingCacheData = _tagCache.TrackingCacheData.Value;
+                if (trackingCacheData.ContainsCachedTags(span))
+                {
+                    MaybeAddTracking(trackingCacheData, span.Snapshot, ref tagSource, ref tagList);
+                }
             }
 
-            return TagLookupResult.Empty;
-        }
-
-        /// <summary>
-        /// Get the tags from the BackgroundCacheData
-        /// </summary>
-        private TagLookupResult GetTagsFromCache(SnapshotSpan span, BackgroundCacheData backgroundCacheData)
-        {
-            // If the requested span doesn't even intersect with the overarching SnapshotSpan
-            // of the cached data in the background then a more exhaustive search isn't needed
-            // at this time
-            var cachedSpan = backgroundCacheData.Span;
-            if (!cachedSpan.IntersectsWith(span))
-            {
-                return TagLookupResult.Empty;
-            }
-
-            var lineRange = SnapshotLineRange.CreateForSpan(span);
-            var unvisited = backgroundCacheData.VisitedCollection.GetUnvisited(lineRange.LineRange);
-            return unvisited.HasValue
-                ? TagLookupResult.CreatePartial(backgroundCacheData.TagList)
-                : TagLookupResult.CreateComplete(backgroundCacheData.TagList);
-        }
-
-        /// <summary>
-        /// Get the tags from the edit tracking data which intersect with the requested SnapshotSpan
-        /// </summary>
-        private TagLookupResult GetTagsFromCache(SnapshotSpan span, TrackingCacheData trackingCacheData)
-        {
-            // If this SnapshotSpan is coming from a different snapshot which is ahead of 
-            // our current one we need to take special steps.  If we simply return nothing
-            // and go to the background the tags will flicker on screen.  
-            //
-            // To work around this we try to map the tags to the requested ITextSnapshot. If
-            // it succeeds then we use the mapped values and simultaneously kick off a background
-            // request for the correct ones
-            var snapshot = span.Snapshot;
-            var trackingSpan = trackingCacheData.TrackingSpan.GetSpanSafe(snapshot);
-            if (!trackingSpan.HasValue)
-            {
-                return TagLookupResult.Empty;
-            }
-
-            var mappedSpan = trackingSpan.Value;
-            if (mappedSpan.IntersectsWith(span))
-            {
-                // Mapping gave us at least partial information.  Will work for the transition
-                // period
-                var tagList =
-                    trackingCacheData.TrackingList
-                    .Select(
-                        tuple =>
-                        {
-                            var itemSpan = tuple.Item1.GetSpanSafe(snapshot);
-                            return itemSpan.HasValue
-                                ? (ITagSpan<TTag>)new TagSpan<TTag>(itemSpan.Value, tuple.Item2)
-                                : null;
-                        })
-                    .Where(tagSpan => tagSpan != null)
-                    .ToReadOnlyCollection();
-                return TagLookupResult.CreatePartial(tagList);
-            }
-
-            return TagLookupResult.Empty;
+            return false;
         }
 
         /// <summary>
@@ -650,7 +626,7 @@ namespace EditorUtils.Implementation.Tagging
         private static void GetTagsInBackgroundCore(
             IAsyncTaggerSource<TData, TTag> asyncTaggerSource,
             TData data,
-            int chunkCount, 
+            int chunkCount,
             ThreadedLineRangeStack threadedLineRangeStack,
             NormalizedLineRangeCollection visited,
             CancellationToken cancellationToken,
@@ -770,7 +746,7 @@ namespace EditorUtils.Implementation.Tagging
                 EditorUtilsTrace.TraceInfo("AsyncTagger Exception in background processing {0}", e);
                 completeReason = CompleteReason.Error;
             }
-            
+
             onComplete(completeReason);
         }
 
@@ -801,7 +777,7 @@ namespace EditorUtils.Implementation.Tagging
 
         private void AdjustRequestSpan(SnapshotSpan requestSpan)
         {
-            _cachedRequestSpan = TaggerUtil.AdjustRequestedSpan(_cachedRequestSpan, requestSpan);
+            _cachedOverarchingRequestSpan = TaggerUtil.AdjustRequestedSpan(_cachedOverarchingRequestSpan, requestSpan);
         }
 
         /// <summary>
@@ -824,6 +800,28 @@ namespace EditorUtils.Implementation.Tagging
             }
 
             _tagCache = new TagCache(null, trackingCacheData);
+        }
+
+        private void MaybeAddBackground(BackgroundCacheData backgroundCacheData, ref TagSource tagSource, ref IEnumerable<ITagSpan<TTag>> tagList)
+        {
+            if (0 != (TagSource.BackgroundCache & tagSource))
+            {
+                return;
+            }
+
+            tagSource |= TagSource.BackgroundCache;
+            tagList = tagList.Concat(backgroundCacheData.TagList);
+        }
+
+        private void MaybeAddTracking(TrackingCacheData trackingCacheData, ITextSnapshot snapshot, ref TagSource tagSource, ref IEnumerable<ITagSpan<TTag>> tagList)
+        {
+            if (0 != (TagSource.TrackingCache & tagSource))
+            {
+                return;
+            }
+
+            tagSource |= TagSource.TrackingCache;
+            tagList = tagList.Concat(trackingCacheData.GetCachedTags(snapshot));
         }
 
         private void RaiseTagsChanged(SnapshotSpan span)
@@ -851,9 +849,9 @@ namespace EditorUtils.Implementation.Tagging
             // and tell the consumers that it's changed.  Use the entire cached request
             // span here.  We're pessimistic when we have a Changed call because we have
             // no information on what could've changed
-            if (_cachedRequestSpan.HasValue)
+            if (_cachedOverarchingRequestSpan.HasValue)
             {
-                RaiseTagsChanged(_cachedRequestSpan.Value);
+                RaiseTagsChanged(_cachedOverarchingRequestSpan.Value);
             }
         }
 
