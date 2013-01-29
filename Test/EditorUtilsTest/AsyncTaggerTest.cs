@@ -284,16 +284,15 @@ namespace EditorUtils.UnitTest
             CancellationTokenSource cancellationTokenSource,
             Task task = null)
         {
-            var threadedLineRangeStack = new ThreadedLineRangeStack();
-            threadedLineRangeStack.Push(SnapshotLineRange.CreateForSpan(span));
+            var channel = new AsyncTagger<string, TextMarkerTag>.Channel();
+            channel.WriteNormal(SnapshotLineRange.CreateForSpan(span));
 
             task = task ?? new Task(() => { });
             return new AsyncTaggerType.AsyncBackgroundRequest(
                 span.Snapshot,
-                cancellationTokenSource,
-                threadedLineRangeStack,
-                new SingleItemQueue<SnapshotLineRange>(),
-                task);
+                channel,
+                task,
+                cancellationTokenSource);
         }
 
         internal void SetTagCache(AsyncTaggerType.TrackingCacheData trackingCacheData)
@@ -489,11 +488,11 @@ namespace EditorUtils.UnitTest
                     _textBuffer.GetLineRange(0).Extent,
                     cancellationTokenSource,
                     new Task(() => { }));
-                var threadedLineRangeStack = _asyncTagger.AsyncBackgroundRequestData.Value.ThreadedLineRangeStack;
-                Assert.Equal(1, threadedLineRangeStack.CurrentStack.Count);
+                var channel = _asyncTagger.AsyncBackgroundRequestData.Value.Channel;
+                Assert.Equal(1, channel.CurrentStack.Count);
 
                 var tags = _asyncTagger.GetTags(_textBuffer.GetLineRange(1).Extent).ToList();
-                Assert.Equal(2, threadedLineRangeStack.CurrentStack.Count);
+                Assert.Equal(2, channel.CurrentStack.Count);
                 Assert.Same(cancellationTokenSource, _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource);
             }
 

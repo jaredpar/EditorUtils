@@ -15,8 +15,8 @@ namespace EditorUtils.Implementation.Utilities
     [UsedInBackgroundThread]
     internal sealed class ThreadedLineRangeStack
     {
-        ImmutableSnapshotLineRangeStack _stack;
-        int _version;
+        private ImmutableSnapshotLineRangeStack _stack;
+        private int _version;
 
         internal int CurrentVersion
         {

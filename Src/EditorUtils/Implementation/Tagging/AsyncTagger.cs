@@ -10,7 +10,7 @@ using Microsoft.VisualStudio.Text.Tagging;
 
 namespace EditorUtils.Implementation.Tagging
 {
-    internal sealed class AsyncTagger<TData, TTag> : ITagger<TTag>, IDisposable
+    internal sealed partial class AsyncTagger<TData, TTag> : ITagger<TTag>, IDisposable
         where TTag : ITag
     {
         #region CompleteReason
@@ -251,22 +251,19 @@ namespace EditorUtils.Implementation.Tagging
         internal struct AsyncBackgroundRequest
         {
             internal readonly ITextSnapshot Snapshot;
-            internal readonly CancellationTokenSource CancellationTokenSource;
-            internal readonly ThreadedLineRangeStack ThreadedLineRangeStack;
-            internal readonly SingleItemQueue<SnapshotLineRange> TextViewLineRangeQueue;
+            internal readonly Channel Channel;
             internal readonly Task Task;
+            internal readonly CancellationTokenSource CancellationTokenSource;
 
             internal AsyncBackgroundRequest(
                 ITextSnapshot snapshot,
-                CancellationTokenSource cancellationTokenSource,
-                ThreadedLineRangeStack threadedLineRangeStack,
-                SingleItemQueue<SnapshotLineRange> textViewLineRangeQueue,
-                Task task)
+                Channel channel,
+                Task task,
+                CancellationTokenSource cancellationTokenSource)
             {
                 Snapshot = snapshot;
                 CancellationTokenSource = cancellationTokenSource;
-                ThreadedLineRangeStack = threadedLineRangeStack;
-                TextViewLineRangeQueue = textViewLineRangeQueue;
+                Channel = channel;
                 Task = task;
             }
         }
@@ -547,7 +544,7 @@ namespace EditorUtils.Implementation.Tagging
                 {
                     Contract.Requires(asyncBackgroundRequest.Snapshot == snapshot);
                     EditorUtilsTrace.TraceInfo("AsyncTagger Background Existing {0} - {1}", lineRange.StartLineNumber, lineRange.LastLineNumber);
-                    asyncBackgroundRequest.ThreadedLineRangeStack.Push(lineRange);
+                    asyncBackgroundRequest.Channel.WriteNormal(lineRange);
                     return;
                 }
 
@@ -561,18 +558,17 @@ namespace EditorUtils.Implementation.Tagging
             var data = _asyncTaggerSource.GetDataForSnapshot(snapshot);
             var cancellationTokenSource = new CancellationTokenSource();
             var cancellationToken = cancellationTokenSource.Token;
-            var threadedLineRangeStack = new ThreadedLineRangeStack();
-            threadedLineRangeStack.Push(lineRange);
+            var channel = new Channel();
+            channel.WriteNormal(lineRange);
 
             // If there is an ITextView then make sure it is requested as well.  If the source provides an 
             // ITextView then it is always prioritized on requests for a new snapshot
-            var textViewLineRangeQueue = new SingleItemQueue<SnapshotLineRange>();
             if (_asyncTaggerSource.TextViewOptional != null)
             {
                 var visibleLineRange = _asyncTaggerSource.TextViewOptional.GetVisibleSnapshotLineRange();
                 if (visibleLineRange.HasValue)
                 {
-                    textViewLineRangeQueue.Enqueue(visibleLineRange.Value);
+                    channel.WriteVisibleLines(visibleLineRange.Value);
                 }
             }
 
@@ -598,11 +594,10 @@ namespace EditorUtils.Implementation.Tagging
                 localAsyncTaggerSource,
                 data,
                 localChunkCount,
-                threadedLineRangeStack,
-                textViewLineRangeQueue,
+                channel,
                 localVisited,
                 cancellationToken,
-                (completeReason) => synchronizationContext.Post(_ => OnGetTagsInBackgroundComplete(completeReason, threadedLineRangeStack, cancellationTokenSource), null),
+                (completeReason) => synchronizationContext.Post(_ => OnGetTagsInBackgroundComplete(completeReason, channel, cancellationTokenSource), null),
                 (processedLineRange, tagList) => synchronizationContext.Post(_ => OnGetTagsInBackgroundProgress(cancellationTokenSource, processedLineRange, tagList), null));
 
             // Create the Task which will handle the actual gathering of data.  If there is a delay
@@ -622,10 +617,9 @@ namespace EditorUtils.Implementation.Tagging
             var task = new Task(taskAction, cancellationToken);
             _asyncBackgroundRequest = new AsyncBackgroundRequest(
                 span.Snapshot,
-                cancellationTokenSource,
-                threadedLineRangeStack,
-                textViewLineRangeQueue,
-                task);
+                channel,
+                task,
+                cancellationTokenSource);
 
             task.Start();
         }
@@ -635,8 +629,7 @@ namespace EditorUtils.Implementation.Tagging
             IAsyncTaggerSource<TData, TTag> asyncTaggerSource,
             TData data,
             int chunkCount,
-            ThreadedLineRangeStack threadedLineRangeStack,
-            SingleItemQueue<SnapshotLineRange> textViewLineRangeQueue,
+            Channel channel,
             NormalizedLineRangeCollection visited,
             CancellationToken cancellationToken,
             Action<CompleteReason> onComplete,
@@ -650,24 +643,23 @@ namespace EditorUtils.Implementation.Tagging
                 var toProcess = new Queue<SnapshotLineRange>();
 
                 // *** This value can be wrong *** 
-                // This is the version number we expect the ThreadedLineRangeStack to have.  It's used
+                // This is the version number we expect the Channel to have.  It's used
                 // as a hueristic to determine if we should prioritize a value off of the stack or our
                 // local stack.  If it's wrong it means we prioritize the wrong value.  Not a bug it
                 // just changes the order in which values will appear
-                var versionNumber = threadedLineRangeStack.CurrentVersion;
+                var versionNumber = channel.CurrentVersion;
 
                 // Take one value off of the threadedLineRangeStack value.  If the value is bigger than
                 // our chunking increment then we will add the value in chunks to the toProcess queue
                 Action popOne =
                     () =>
                     {
-                        var value = threadedLineRangeStack.Pop();
+                        var value = channel.Read();
                         if (!value.HasValue)
                         {
                             return;
                         }
 
-                        versionNumber++;
                         var lineRange = value.Value;
                         if (lineRange.Count <= chunkCount)
                         {
@@ -717,15 +709,7 @@ namespace EditorUtils.Implementation.Tagging
 
                 do
                 {
-                    // Always prioritize the line range that is visible in the provided ITextView instance
-                    SnapshotLineRange textViewLineRange;
-                    if (textViewLineRangeQueue.TryDequeue(out textViewLineRange))
-                    {
-                        getTags(textViewLineRange);
-                        continue;
-                    }
-
-                    versionNumber = threadedLineRangeStack.CurrentVersion;
+                    versionNumber = channel.CurrentVersion;
                     popOne();
 
                     // We've drained both of the sources of input hence we are done
@@ -738,7 +722,7 @@ namespace EditorUtils.Implementation.Tagging
                     {
                         // If at any point the threadLineRangeStack value changes we consider the new values to have 
                         // priority over the old ones
-                        if (versionNumber != threadedLineRangeStack.CurrentVersion)
+                        if (versionNumber != channel.CurrentVersion)
                         {
                             break;
                         }
@@ -880,7 +864,7 @@ namespace EditorUtils.Implementation.Tagging
             var asyncBackgroundRequest = _asyncBackgroundRequest.Value;
             if (visibleLineRange.HasValue && visibleLineRange.Value.Snapshot == asyncBackgroundRequest.Snapshot)
             {
-                asyncBackgroundRequest.TextViewLineRangeQueue.Enqueue(visibleLineRange.Value);
+                asyncBackgroundRequest.Channel.WriteVisibleLines(visibleLineRange.Value);
             }
         }
 
@@ -940,7 +924,7 @@ namespace EditorUtils.Implementation.Tagging
         ///
         /// Called on the main thread
         /// </summary>
-        private void OnGetTagsInBackgroundComplete(CompleteReason reason, ThreadedLineRangeStack threadedLineRangeStack, CancellationTokenSource cancellationTokenSource)
+        private void OnGetTagsInBackgroundComplete(CompleteReason reason, Channel channel, CancellationTokenSource cancellationTokenSource)
         {
             if (!IsActiveBackgroundRequest(cancellationTokenSource))
             {
@@ -966,13 +950,13 @@ namespace EditorUtils.Implementation.Tagging
             // drain this value and re-request the data 
             //
             // We own the stack at this point so just access it directly
-            var stack = threadedLineRangeStack.CurrentStack;
+            var stack = channel.CurrentStack;
             if (!stack.IsEmpty && reason == CompleteReason.Finished)
             {
                 var list = new List<SnapshotSpan>();
                 while (!stack.IsEmpty)
                 {
-                    GetTags(new NormalizedSnapshotSpanCollection(stack.Value.Extent));
+                    GetTagsInBackground(stack.Value.ExtentIncludingLineBreak);
                     stack = stack.Pop();
                 }
             }

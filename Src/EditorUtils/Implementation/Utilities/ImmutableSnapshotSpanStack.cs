@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 namespace EditorUtils.Implementation.Utilities
 {
+    /// <summary>
+    /// Make this a ReadOnly stack
+    /// </summary>
     [UsedInBackgroundThread]
     internal sealed class ImmutableSnapshotLineRangeStack : IEnumerable<SnapshotLineRange>
     {
