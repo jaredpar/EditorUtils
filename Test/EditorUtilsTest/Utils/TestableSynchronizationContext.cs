@@ -22,8 +22,15 @@ namespace EditorUtils.UnitTest.Utils
         {
             while (_list.Count > 0)
             {
-                _list[0]();
-                _list.RemoveAt(0);
+                try
+                {
+                    _list[0]();
+                    _list.RemoveAt(0);
+                }
+                catch
+                {
+
+                }
             }
         }
 
