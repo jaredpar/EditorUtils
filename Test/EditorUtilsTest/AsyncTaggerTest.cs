@@ -292,6 +292,7 @@ namespace EditorUtils.UnitTest
                 span.Snapshot,
                 cancellationTokenSource,
                 threadedLineRangeStack,
+                new SingleItemQueue<SnapshotLineRange>(),
                 task);
         }
 

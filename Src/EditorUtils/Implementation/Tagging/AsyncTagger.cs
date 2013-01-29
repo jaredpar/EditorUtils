@@ -253,17 +253,20 @@ namespace EditorUtils.Implementation.Tagging
             internal readonly ITextSnapshot Snapshot;
             internal readonly CancellationTokenSource CancellationTokenSource;
             internal readonly ThreadedLineRangeStack ThreadedLineRangeStack;
+            internal readonly SingleItemQueue<SnapshotLineRange> TextViewLineRangeQueue;
             internal readonly Task Task;
 
             internal AsyncBackgroundRequest(
                 ITextSnapshot snapshot,
                 CancellationTokenSource cancellationTokenSource,
                 ThreadedLineRangeStack threadedLineRangeStack,
+                SingleItemQueue<SnapshotLineRange> textViewLineRangeQueue,
                 Task task)
             {
                 Snapshot = snapshot;
                 CancellationTokenSource = cancellationTokenSource;
                 ThreadedLineRangeStack = threadedLineRangeStack;
+                TextViewLineRangeQueue = textViewLineRangeQueue;
                 Task = task;
             }
         }
@@ -563,12 +566,13 @@ namespace EditorUtils.Implementation.Tagging
 
             // If there is an ITextView then make sure it is requested as well.  If the source provides an 
             // ITextView then it is always prioritized on requests for a new snapshot
+            var textViewLineRangeQueue = new SingleItemQueue<SnapshotLineRange>();
             if (_asyncTaggerSource.TextViewOptional != null)
             {
                 var visibleLineRange = _asyncTaggerSource.TextViewOptional.GetVisibleSnapshotLineRange();
                 if (visibleLineRange.HasValue)
                 {
-                    threadedLineRangeStack.Push(visibleLineRange.Value);
+                    textViewLineRangeQueue.Enqueue(visibleLineRange.Value);
                 }
             }
 
@@ -595,6 +599,7 @@ namespace EditorUtils.Implementation.Tagging
                 data,
                 localChunkCount,
                 threadedLineRangeStack,
+                textViewLineRangeQueue,
                 localVisited,
                 cancellationToken,
                 (completeReason) => synchronizationContext.Post(_ => OnGetTagsInBackgroundComplete(completeReason, threadedLineRangeStack, cancellationTokenSource), null),
@@ -619,6 +624,7 @@ namespace EditorUtils.Implementation.Tagging
                 span.Snapshot,
                 cancellationTokenSource,
                 threadedLineRangeStack,
+                textViewLineRangeQueue,
                 task);
 
             task.Start();
@@ -630,6 +636,7 @@ namespace EditorUtils.Implementation.Tagging
             TData data,
             int chunkCount,
             ThreadedLineRangeStack threadedLineRangeStack,
+            SingleItemQueue<SnapshotLineRange> textViewLineRangeQueue,
             NormalizedLineRangeCollection visited,
             CancellationToken cancellationToken,
             Action<CompleteReason> onComplete,
@@ -710,6 +717,14 @@ namespace EditorUtils.Implementation.Tagging
 
                 do
                 {
+                    // Always prioritize the line range that is visible in the provided ITextView instance
+                    SnapshotLineRange textViewLineRange;
+                    if (textViewLineRangeQueue.TryDequeue(out textViewLineRange))
+                    {
+                        getTags(textViewLineRange);
+                        continue;
+                    }
+
                     versionNumber = threadedLineRangeStack.CurrentVersion;
                     popOne();
 
@@ -865,7 +880,7 @@ namespace EditorUtils.Implementation.Tagging
             var asyncBackgroundRequest = _asyncBackgroundRequest.Value;
             if (visibleLineRange.HasValue && visibleLineRange.Value.Snapshot == asyncBackgroundRequest.Snapshot)
             {
-                GetTagsInBackground(visibleLineRange.Value.Extent);
+                asyncBackgroundRequest.TextViewLineRangeQueue.Enqueue(visibleLineRange.Value);
             }
         }
 

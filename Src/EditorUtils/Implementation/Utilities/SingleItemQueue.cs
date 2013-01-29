@@ -30,6 +30,12 @@ namespace EditorUtils.Implementation.Utilities
         internal bool TryDequeue(out T value)
         {
             var item = Interlocked.Exchange(ref _item, new Item(true, default(T)));
+            if (item == null)
+            {
+                value = default(T);
+                return false;
+            }
+
             value = item.Value;
             return !item.IsEmpty;
         }
