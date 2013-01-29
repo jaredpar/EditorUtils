@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EditorUtils.Implementation.Tagging;
-using EditorUtils.Implementation.Utilities;
 using EditorUtils.UnitTest.Utils;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
@@ -834,7 +833,73 @@ namespace EditorUtils.UnitTest
             }
         }
 
-        public sealed class ComplexTests : AsyncTaggerTest
+        public sealed class RaceConditionTests : AsyncTaggerTest
+        {
+            /// <summary>
+            /// There is a race condition in the code base.  It occurs when a call to GetTags occurs for 
+            /// uncached data while the async background request is still alive but has already completed
+            /// processing.  The background thread is done but the foreground thread thinks it is processing
+            /// the data.
+            /// 
+            /// The code works around this by seein the unfinished work after we get back to the UI thread
+            /// and reschedules the request automatically
+            /// </summary>
+            [Fact]
+            public void GetTags()
+            {
+                Create("dog", "cat", "fish", "dog");
+                _asyncTaggerSource.SetBackgroundFunc(span => TestUtils.GetDogTags(span));
+                _asyncTagger.GetTags(_textBuffer.GetLineRange(0).Extent);
+                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
+
+                // Background is done.  Because we control the synchronization context though the foreground 
+                // thread still sees it as active and hence will continue to queue data on it 
+                _asyncTagger.AsyncBackgroundRequestData.Value.Task.Wait();
+                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
+                _asyncTagger.GetTags(_textBuffer.GetLineRange(3).Extent);
+
+                // Clear the queue, the missing work will be seen and immedieatly requeued
+                _synchronizationContext.RunAll();
+                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
+                WaitForBackgroundToComplete();
+
+                var tags = _asyncTagger.GetTags(_textBuffer.GetExtent());
+                Assert.Equal(
+                    new[] { _textBuffer.GetLineSpan(0, 3), _textBuffer.GetLineSpan(3, 3) },
+                    tags.Select(x => x.Span));
+            }
+
+            /// <summary>
+            /// It's possible that between the time the background thread completes it's processing 
+            /// and when it can make it back to the UI thread that another request comes in.  At that
+            /// point it is no loner the active request and shouldn't be updating any data 
+            /// </summary>
+            [Fact]
+            public void BackgroundCompleted()
+            {
+                Create("dog", "cat", "fish", "dog");
+                _asyncTaggerSource.SetBackgroundFunc(span => TestUtils.GetDogTags(span));
+                _asyncTagger.GetTags(_textBuffer.GetLineRange(0).Extent);
+                _asyncTagger.AsyncBackgroundRequestData.Value.Task.Wait();
+
+                // The background request is now complete and it's posted to the UI thread.  Create a 
+                // new request on a new snapshot.  This will supercede the existing request
+                _textBuffer.Replace(new Span(0, 0), "big ");
+                _asyncTagger.GetTags(_textBuffer.GetLineRange(0).Extent);
+                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
+                var tokenSource = _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource;
+
+                // The background will try to post twice (once for progress and the other for complete)
+                for (int i = 0; i < 2; i++)
+                {
+                    _synchronizationContext.RunOne();
+                    Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
+                    Assert.Equal(tokenSource, _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource);
+                }
+            }
+        }
+
+        public sealed class MiscTest : AsyncTaggerTest
         {
             /// <summary>
             /// When the editor makes consequitive requests for various spans we need to eventually fulfill
@@ -948,39 +1013,13 @@ namespace EditorUtils.UnitTest
             
             }
 
-            /// <summary>
-            /// There is a race condition in the code base.  It occurs when a call to GetTags occurs for 
-            /// uncached data while the async background request is still alive but has already completed
-            /// processing.  The background thread is done but the foreground thread thinks it is processing
-            /// the data.
-            /// 
-            /// The code works around this by seein the unfinished work after we get back to the UI thread
-            /// and reschedules the request automatically
-            /// </summary>
             [Fact]
-            public void GetTagsRaceCondition()
+            public void ChunkCountDefault()
             {
-                Create("dog", "cat", "fish", "dog");
-                _asyncTaggerSource.SetBackgroundFunc(span => TestUtils.GetDogTags(span));
-                _asyncTagger.GetTags(_textBuffer.GetLineRange(0).Extent);
-                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
-
-                // Background is done.  Because we control the synchronization context though the foreground 
-                // thread still sees it as active and hence will continue to queue data on it 
-                _asyncTagger.AsyncBackgroundRequestData.Value.Task.Wait();
-                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
-                _asyncTagger.GetTags(_textBuffer.GetLineRange(3).Extent);
-
-                // Clear the queue, the missing work will be seen and immedieatly requeued
-                _synchronizationContext.RunAll();
-                Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
-                WaitForBackgroundToComplete();
-
-                var tags = _asyncTagger.GetTags(_textBuffer.GetExtent());
-                Assert.Equal(
-                    new[] { _textBuffer.GetLineSpan(0, 3), _textBuffer.GetLineSpan(3, 3) },
-                    tags.Select(x => x.Span));
+                Create("");
+                Assert.Equal(AsyncTagger<string, TextMarkerTag>.DefaultChunkCount, _asyncTagger.ChunkCount);
             }
+
         }
     }
 }

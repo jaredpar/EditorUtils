@@ -18,19 +18,29 @@ namespace EditorUtils.UnitTest.Utils
             _list.Add(() => d(state));
         }
 
+        public void RunOne()
+        {
+            if (_list.Count == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                _list[0]();
+                _list.RemoveAt(0);
+            }
+            catch
+            {
+
+            }
+        }
+
         public void RunAll()
         {
             while (_list.Count > 0)
             {
-                try
-                {
-                    _list[0]();
-                    _list.RemoveAt(0);
-                }
-                catch
-                {
-
-                }
+                RunOne();
             }
         }
 

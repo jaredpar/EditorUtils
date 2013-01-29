@@ -394,30 +394,32 @@ namespace EditorUtils.Implementation.Tagging
         /// </summary>
         internal IEnumerable<ITagSpan<TTag>> GetTags(NormalizedSnapshotSpanCollection col)
         {
+            // The editor itself will never send an empty collection to GetTags.  But this is an 
+            // API and other components are free to call it with whatever values they like
+            if (col.Count == 0)
+            {
+                return EmptyTagList;
+            }
+
             AdjustRequestSpan(col);
+            AdjustToSnapshot(col[0].Snapshot);
 
             if (col.Count == 1)
             {
                 return GetTags(col[0]);
             }
-            else
+
+            EditorUtilsTrace.TraceInfo("AsyncTagger::GetTags Count {0}", col.Count);
+            IEnumerable<ITagSpan<TTag>> all = null;
+            foreach (var span in col)
             {
-                EditorUtilsTrace.TraceInfo("AsyncTagger::GetTags Count {0}", col.Count);
-
-                IEnumerable<ITagSpan<TTag>> all = null;
-                foreach (var span in col)
-                {
-                    var current = GetTags(span);
-                    all = all == null
-                        ? current
-                        : all.Concat(current);
-                }
-
-                // Must handle the empty NormalizedSnasphotSpanCollection case
-                return all == null
-                    ? EmptyTagList
-                    : all;
+                var current = GetTags(span);
+                all = all == null
+                    ? current
+                    : all.Concat(current);
             }
+
+            return all;
         }
 
         private IEnumerable<ITagSpan<TTag>> GetTags(SnapshotSpan span)
@@ -526,7 +528,11 @@ namespace EditorUtils.Implementation.Tagging
 
             // The background processing should now be focussed on the specified ITextSnapshot 
             var snapshot = span.Snapshot;
-            UpdateBackgroundDataToSnapshot(snapshot);
+
+            // In the majority case GetTags(NormalizedSnapshotCollection) drives this function and 
+            // AdjustToSnapshot is already called.  There are other code paths though within AsyncTagger
+            // which call this method.  We need to guard against them here.  
+            AdjustToSnapshot(snapshot);
 
             // Our caching and partitioning of data is all done on a line range
             // basis.  Just expand the requested SnapshotSpan to the encompassing
@@ -794,9 +800,9 @@ namespace EditorUtils.Implementation.Tagging
 
         /// <summary>
         /// The background processing is now focussed on the given ITextSnapshot.  If anything is 
-        /// focused on the old ITextSnapshot move it to the specified one
+        /// focused on the old ITextSnapshot move it to the specified one.
         /// </summary>
-        private void UpdateBackgroundDataToSnapshot(ITextSnapshot snapshot)
+        private void AdjustToSnapshot(ITextSnapshot snapshot)
         {
             // First check and see if we need to move the existing background data to tracking data
             if (_tagCache.BackgroundCacheData.HasValue && _tagCache.BackgroundCacheData.Value.Snapshot != snapshot)

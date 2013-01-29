@@ -46,11 +46,6 @@ namespace EditorUtils.Implementation.Utilities
             _count = next.Count + 1;
         }
 
-        internal ReadOnlyStack<T> Add(T span)
-        {
-            return new ReadOnlyStack<T>(span, this);
-        }
-
         internal ReadOnlyStack<T> Pop()
         {
             ThrowIfEmpty();

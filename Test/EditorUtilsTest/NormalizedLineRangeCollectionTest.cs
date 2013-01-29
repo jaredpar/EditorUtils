@@ -182,4 +182,16 @@ namespace EditorUtils.UnitTest
             }
         }
     }
+
+    public sealed class MiscTest : NormalizedLineRangeCollectionTest
+    {
+        [Fact]
+        public void Clear()
+        {
+            var col = new NormalizedLineRangeCollection();
+            col.Add(new LineRange(1, 2));
+            col.Clear();
+            Assert.Equal(0, col.Count);
+        }
+    }
 }
