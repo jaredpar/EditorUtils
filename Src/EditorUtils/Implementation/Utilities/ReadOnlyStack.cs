@@ -7,12 +7,12 @@ namespace EditorUtils.Implementation.Utilities
     /// Make this a ReadOnly stack
     /// </summary>
     [UsedInBackgroundThread]
-    internal sealed class ImmutableSnapshotLineRangeStack : IEnumerable<SnapshotLineRange>
+    internal sealed class ReadOnlyStack<T> : IEnumerable<T>
     {
-        internal static readonly ImmutableSnapshotLineRangeStack Empty = new ImmutableSnapshotLineRangeStack();
+        internal static readonly ReadOnlyStack<T> Empty = new ReadOnlyStack<T>();
 
-        private readonly ImmutableSnapshotLineRangeStack _next;
-        private readonly SnapshotLineRange _value;
+        private readonly ReadOnlyStack<T> _next;
+        private readonly T _value;
         private readonly int _count;
 
         internal bool IsEmpty
@@ -25,7 +25,7 @@ namespace EditorUtils.Implementation.Utilities
             get { return _count; }
         }
 
-        internal SnapshotLineRange Value
+        internal T Value
         {
             get
             {
@@ -34,32 +34,32 @@ namespace EditorUtils.Implementation.Utilities
             }
         }
 
-        private ImmutableSnapshotLineRangeStack()
+        private ReadOnlyStack()
         {
 
         }
 
-        private ImmutableSnapshotLineRangeStack(SnapshotLineRange lineRange, ImmutableSnapshotLineRangeStack next)
+        private ReadOnlyStack(T lineRange, ReadOnlyStack<T> next)
         {
             _value = lineRange;
             _next = next;
             _count = next.Count + 1;
         }
 
-        internal ImmutableSnapshotLineRangeStack Add(SnapshotLineRange span)
+        internal ReadOnlyStack<T> Add(T span)
         {
-            return new ImmutableSnapshotLineRangeStack(span, this);
+            return new ReadOnlyStack<T>(span, this);
         }
 
-        internal ImmutableSnapshotLineRangeStack Pop()
+        internal ReadOnlyStack<T> Pop()
         {
             ThrowIfEmpty();
             return _next;
         }
 
-        internal ImmutableSnapshotLineRangeStack Push(SnapshotLineRange lineRange)
+        internal ReadOnlyStack<T> Push(T lineRange)
         {
-            return new ImmutableSnapshotLineRangeStack(lineRange, this);
+            return new ReadOnlyStack<T>(lineRange, this);
         }
 
         private void ThrowIfEmpty()
@@ -70,7 +70,7 @@ namespace EditorUtils.Implementation.Utilities
             }
         }
 
-        public IEnumerator<SnapshotLineRange> GetEnumerator()
+        public IEnumerator<T> GetEnumerator()
         {
             var top = this;
             while (!top.IsEmpty)
@@ -80,9 +80,9 @@ namespace EditorUtils.Implementation.Utilities
             }
         }
 
-        #region IEnumerable<SnapshotLineRange>
+        #region IEnumerable<T>
 
-        IEnumerator<SnapshotLineRange> IEnumerable<SnapshotLineRange>.GetEnumerator()
+        IEnumerator<T> IEnumerable<T>.GetEnumerator()
         {
             return GetEnumerator();
         }

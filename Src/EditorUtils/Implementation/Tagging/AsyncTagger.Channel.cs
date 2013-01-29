@@ -31,7 +31,7 @@ namespace EditorUtils.Implementation.Tagging
             /// This is the normal request stack from the main thread.  More recently requested items
             /// are given higher priority than older items
             /// </summary>
-            private ImmutableSnapshotLineRangeStack _stack;
+            private ReadOnlyStack<SnapshotLineRange> _stack;
 
             /// <summary>
             /// When set this is represents the visible line range of the text view.  It has the highest
@@ -47,7 +47,7 @@ namespace EditorUtils.Implementation.Tagging
             /// <summary>
             /// The current state of the request stack
             /// </summary>
-            internal ImmutableSnapshotLineRangeStack CurrentStack
+            internal ReadOnlyStack<SnapshotLineRange> CurrentStack
             {
                 get { return _stack; }
             }
@@ -64,7 +64,7 @@ namespace EditorUtils.Implementation.Tagging
 
             internal Channel()
             {
-                _stack = ImmutableSnapshotLineRangeStack.Empty;
+                _stack = ReadOnlyStack<SnapshotLineRange>.Empty;
             }
 
             internal void WriteVisibleLines(SnapshotLineRange lineRange)
