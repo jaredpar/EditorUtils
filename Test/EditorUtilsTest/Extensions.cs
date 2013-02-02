@@ -7,7 +7,7 @@ using Microsoft.VisualStudio.Text.Tagging;
 
 namespace EditorUtils.UnitTest
 {
-    public static class EditorExtensions
+    public static class Extensions
     {
         #region ITagger<T>
 

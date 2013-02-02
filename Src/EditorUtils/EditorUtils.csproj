@@ -70,6 +70,7 @@
     <Compile Include="Implementation\BasicUndo\BasicUndoHistoryRegistry.cs" />
     <Compile Include="Implementation\BasicUndo\BasicUndoTransaction.cs" />
     <Compile Include="Implementation\Outlining\AdhocOutliner.cs" />
+    <Compile Include="Implementation\Outlining\AdhocOutlinerFactory.cs" />
     <Compile Include="Implementation\Tagging\AsyncTagger.cs" />
     <Compile Include="Implementation\Tagging\AsyncTagger.Channel.cs" />
     <Compile Include="Implementation\Tagging\BasicTagger.cs" />
