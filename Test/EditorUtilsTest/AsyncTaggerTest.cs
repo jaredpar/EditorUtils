@@ -9,6 +9,7 @@ using EditorUtils.UnitTest.Utils;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
+using Moq;
 using Xunit;
 using AsyncTaggerType = EditorUtils.Implementation.Tagging.AsyncTagger<string, Microsoft.VisualStudio.Text.Tagging.TextMarkerTag>;
 
@@ -170,6 +171,7 @@ namespace EditorUtils.UnitTest
 
         #endregion
 
+        internal readonly MockFactory _mockFactory;
         protected ITextBuffer _textBuffer;
         protected TestableSynchronizationContext _synchronizationContext;
         protected TestableAsyncTaggerSource _asyncTaggerSource;
@@ -179,6 +181,11 @@ namespace EditorUtils.UnitTest
         protected NormalizedSnapshotSpanCollection EntireBufferSpan
         {
             get { return new NormalizedSnapshotSpanCollection(_textBuffer.CurrentSnapshot.GetExtent()); }
+        }
+
+        internal AsyncTaggerTest()
+        {
+            _mockFactory = new MockFactory();
         }
 
         public void Dispose()
@@ -683,6 +690,22 @@ namespace EditorUtils.UnitTest
                 var tags = GetTagsFull(col);
                 Assert.Equal(0, tags.Count);
             }
+
+            /// <summary>
+            /// Once the cache is built for a portion of the buffer ask for a Span that is not in the 
+            /// cache yet
+            /// </summary>
+            [Fact]
+            public void AfterCompleteNotInCache()
+            {
+                Create("cat", "dog", "fish", "tree dog");
+                _asyncTaggerSource.SetBackgroundFunc(span => TestUtils.GetDogTags(span));
+                GetTagsFull(_textBuffer.GetLineRange(0, 1).Extent);
+                var tags = GetTagsFull(_textBuffer.GetLineRange(3).Extent);
+                Assert.Equal(
+                    new[] { _textBuffer.GetLineSpan(3, 5, 3) },
+                    tags.Select(x => x.Span));
+            }
         }
 
         public sealed class OnChangedTest : AsyncTaggerTest
@@ -899,6 +922,51 @@ namespace EditorUtils.UnitTest
             }
         }
 
+        public sealed class HasTextViewTest : AsyncTaggerTest
+        {
+            private Mock<ITextView> _mockTextView;
+
+            private void CreateWithView(params string[] lines)
+            {
+                Create(lines);
+                _asyncTaggerSource.SetBackgroundFunc(span => TestUtils.GetDogTags(span));
+                _mockTextView = _mockFactory.CreateTextView(_textBuffer);
+                _asyncTaggerSource.TextView = _mockTextView.Object;
+            }
+
+            /// <summary>
+            /// When the ITextView is in a layout the ITextViewLines collection isn't accessible and will throw
+            /// when accessed.  Make sure we don't access it 
+            /// </summary>
+            [Fact]
+            public void InLayout()
+            {
+                CreateWithView("dogs cat bears");
+                _mockTextView.SetupGet(x => x.InLayout).Returns(true);
+                var tags = _asyncTagger.GetTags(_textBuffer.GetExtent());
+                Assert.Equal(0, tags.Count());
+            }
+
+            /// <summary>
+            /// Make sure that visible lines are prioritized over the requested spans.  
+            /// </summary>
+            [Fact]
+            public void PrioritizeVisibleLines()
+            {
+                CreateWithView("dog", "cat", "dog", "bear");
+                _mockFactory.SetVisibleLineRange(_mockTextView, _textBuffer.GetLineRange(2));
+                _asyncTagger.GetTags(_textBuffer.GetLineRange(0).Extent);
+                _asyncTagger.AsyncBackgroundRequestData.Value.Task.Wait();
+
+                // The visible lines will finish first and post.  Let only this one go through
+                _synchronizationContext.RunOne();
+                var tags = _asyncTagger.GetTags(_textBuffer.GetExtent());
+                Assert.Equal(
+                    new[] { _textBuffer.GetLineSpan(2, 3) }, 
+                    tags.Select(x => x.Span));
+            }
+        }
+
         public sealed class MiscTest : AsyncTaggerTest
         {
             /// <summary>
@@ -1020,6 +1088,20 @@ namespace EditorUtils.UnitTest
                 Assert.Equal(AsyncTagger<string, TextMarkerTag>.DefaultChunkCount, _asyncTagger.ChunkCount);
             }
 
+            /// <summary>
+            /// It's possible for the synchronization context to be null in Visual Studio.  Particularly 
+            /// when the WPF designer is active.  Make sure that we handle this gracefully and don't 
+            /// crash
+            /// </summary>
+            [Fact]
+            public void BadSynchronizationContext()
+            {
+                Create("cat dog");
+                _asyncTaggerSource.SetBackgroundFunc(span => TestUtils.GetDogTags(span));
+                SynchronizationContext.SetSynchronizationContext(null);
+                var tags = _asyncTagger.GetTags(_textBuffer.GetExtent());
+                Assert.Equal(0, tags.Count());
+            }
         }
     }
 }

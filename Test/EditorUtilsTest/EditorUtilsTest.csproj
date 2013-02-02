@@ -78,11 +78,12 @@
     <Compile Include="BasicUndoHistoryTest.cs" />
     <Compile Include="ChannelTest.cs" />
     <Compile Include="CountedTaggerTest.cs" />
-    <Compile Include="EditorExtensions.cs" />
+    <Compile Include="Extensions.cs" />
     <Compile Include="EqualityUtil.cs" />
     <Compile Include="ExtensionsTest.cs" />
     <Compile Include="ImportAttributeTest.cs" />
     <Compile Include="LineRangeTest.cs" />
+    <Compile Include="MockFactory.cs" />
     <Compile Include="NormalizedLineRangeCollectionTest.cs" />
     <Compile Include="MemoryLeakTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
+using EditorUtils.Implementation.Tagging;
 
 namespace EditorUtils.UnitTest
 {
