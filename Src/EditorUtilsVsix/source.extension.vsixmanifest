@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Vsix xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Version="1.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2010">
-  <Identifier Id="EditorUtilsVsix-1.0.0.8-5b3b8756-e1d7-4f07-bc0f-8f995063a6c4">
-    <Name>EditorUtils 1.0.0.8</Name>
+  <Identifier Id="EditorUtilsVsix-1.0.9.0-5b3b8756-e1d7-4f07-bc0f-8f995063a6c4">
+    <Name>EditorUtils 1.0.9.0</Name>
     <Author>Jared Parsons</Author>
-    <Version>1.0.0.8</Version>
+    <Version>1.0.9.0</Version>
     <Description xml:space="preserve">VSIX for deploying EditorUtils utility library. </Description>
     <Locale>1033</Locale>
     <MoreInfoUrl>https://github.com/jaredpar/EditorUtils</MoreInfoUrl>
