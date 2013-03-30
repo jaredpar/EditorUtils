@@ -94,10 +94,8 @@
       <Name>EditorUtils</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup Condition="'$(VisualStudioVersion)' == '11.0'">
-    <None Include="App.config" />
-  </ItemGroup>
   <ItemGroup>
+    <None Include="App.config" />
     <None Include="Key.snk" />
     <None Include="packages.config" />
   </ItemGroup>
