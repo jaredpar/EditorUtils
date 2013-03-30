@@ -52,3 +52,5 @@ Samples/HighlightCommentKinds/obj
 
 # Hacky build items
 EditorUtilsVsix.vsix
+Test\EditorUtilsTest\App.config
+
