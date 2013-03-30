@@ -14,4 +14,8 @@
     <Vs2010InstallDir>$(registry:HKEY_LOCAL_MACHINE\Software\Wow6432Node\Microsoft\VisualStudio\10.0@InstallDir)</Vs2010InstallDir>
     <Vs2012InstallDir>$(registry:HKEY_LOCAL_MACHINE\Software\Wow6432Node\Microsoft\VisualStudio\11.0@InstallDir)</Vs2012InstallDir>
   </PropertyGroup>
+
+  <PropertyGroup>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2010</ReferencePath>
+  </PropertyGroup>
 </Project>

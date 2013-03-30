@@ -12,6 +12,8 @@ using Microsoft.VisualStudio.Text.Operations;
 using Microsoft.VisualStudio.Text.Outlining;
 using Microsoft.VisualStudio.Text.Projection;
 using Microsoft.VisualStudio.Utilities;
+using Microsoft.Win32;
+using System.IO;
 
 namespace EditorUtils
 {
@@ -30,13 +32,13 @@ namespace EditorUtils
         /// export of ITextUndoHistoryRegistry in the default scenario.  This ComposablePartCatalog
         /// is simply here to hand export the type in the hosted scenario only
         /// </summary>
-        private sealed class UndoCatalog  : ComposablePartCatalog
+        private sealed class UndoCatalog : ComposablePartCatalog
         {
             private IQueryable<ComposablePartDefinition> _parts;
 
             internal UndoCatalog()
             {
-                ComposablePartDefinition[] parts = new [] { new UndoDefinition() };
+                ComposablePartDefinition[] parts = new[] { new UndoDefinition() };
                 _parts = parts.AsQueryable();
             }
 
@@ -88,17 +90,17 @@ namespace EditorUtils
             {
                 var metadata = new Dictionary<string, object>();
                 metadata.Add(
-                    CompositionConstants.ExportTypeIdentityMetadataName, 
+                    CompositionConstants.ExportTypeIdentityMetadataName,
                     AttributedModelServices.GetTypeIdentity(typeof(ITextUndoHistoryRegistry)));
 
                 var exportDefinition = new ExportDefinition(
                     AttributedModelServices.GetContractName(typeof(ITextUndoHistoryRegistry)),
                     metadata);
-                _exportDefinitions = (new [] { exportDefinition }).ToReadOnlyCollection();
+                _exportDefinitions = (new[] { exportDefinition }).ToReadOnlyCollection();
 
                 var importDefinition = new ImportDefinition(
-                    export => 
-                        export.ContractName == Constants.ContractName && 
+                    export =>
+                        export.ContractName == Constants.ContractName &&
                         (string)export.Metadata[CompositionConstants.ExportTypeIdentityMetadataName] == AttributedModelServices.GetTypeIdentity(typeof(IBasicUndoHistoryRegistry)),
                     Constants.ContractName,
                     ImportCardinality.ExactlyOne,
@@ -127,7 +129,7 @@ namespace EditorUtils
         #endregion
 
         private static readonly string[] EditorComponents =
-            new []
+            new[]
             {
                 // Core editor components
                 "Microsoft.VisualStudio.Platform.VSEditor.dll",
@@ -377,12 +379,26 @@ namespace EditorUtils
         /// </summary>
         private static bool TryGetEditorCatalog(List<ComposablePartCatalog> list)
         {
+            string version;
+            string installDirectory;
+            if (!TryCalculateVersion(out version, out installDirectory))
+            {
+                return false;
+            }
+
+            if (!TryLoadInteropAssembly(installDirectory))
+            {
+                return false;
+            }
+
             try
             {
+                // Load the core editor compontents from the GAC
+                string versionInfo = string.Format(", Version={0}, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL", version);
                 foreach (var name in EditorComponents)
                 {
                     var simpleName = name.Substring(0, name.Length - 4);
-                    var qualifiedName = simpleName + ", Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL";
+                    var qualifiedName = simpleName + versionInfo;
                     var assembly = Assembly.Load(qualifiedName);
                     list.Add(new AssemblyCatalog(assembly));
                 }
@@ -390,6 +406,94 @@ namespace EditorUtils
                 return true;
             }
             catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Try and calculate the version of Visual Studio installed on this machine.  Need both the version
+        /// and the install directory in order to load up the editor components for testing
+        /// </summary>
+        private static bool TryCalculateVersion(out string version, out string installDirectory)
+        {
+            if (TryGetInstallDirectory("10.0", out installDirectory))
+            {
+                version = "10.0.0.0";
+                return true;
+            }
+
+            if (TryGetInstallDirectory("11.0", out installDirectory))
+            {
+                version = "11.0.0.0";
+                return true;
+            }
+
+            installDirectory = null;
+            version = null;
+            return false;
+        }
+
+        /// <summary>
+        /// Try and get the installation directory for the specified version of Visual Studio.  This 
+        /// will fail if the specified version of Visual Studio isn't installed
+        /// </summary>
+        private static bool TryGetInstallDirectory(string version, out string installDirectory)
+        {
+            try
+            {
+                var subKeyPath = String.Format(@"Software\Microsoft\VisualStudio\{0}", version);
+                using (var key = Registry.LocalMachine.OpenSubKey(subKeyPath, writable: false))
+                {
+                    installDirectory = key.GetValue("InstallDir", null) as string;
+                    if (!String.IsNullOrEmpty(installDirectory))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Ignore and try the next version
+            }
+
+            installDirectory = null;
+            return false;
+        }
+
+        /// <summary>
+        /// The interop assembly isn't included in the GAC and it doesn't offer any MEF components (it's
+        /// just a simple COM interop library).  Hence it needs to be loaded a bit specially.  Just find
+        /// the assembly on disk and hook into the resolve event
+        /// </summary>
+        private static bool TryLoadInteropAssembly(string installDirectory)
+        {
+            const string interopName = "Microsoft.VisualStudio.Platform.VSEditor.Interop";
+            const string interopNameWithExtension = interopName + ".dll";
+            var interopAssemblyPath = Path.Combine(installDirectory, "PrivateAssemblies");
+            interopAssemblyPath = Path.Combine(interopAssemblyPath, interopNameWithExtension);
+            try
+            {
+                var interopAssembly = Assembly.LoadFrom(interopAssemblyPath);
+                if (interopAssembly == null)
+                {
+                    return false;
+                }
+
+                var comparer = StringComparer.OrdinalIgnoreCase;
+                AppDomain.CurrentDomain.AssemblyResolve += (sender, e) =>
+                    {
+                        if (comparer.Equals(e.Name, interopAssembly.FullName))
+                        {
+                            return interopAssembly;
+                        }
+
+                        return null;
+                    };
+
+                return true;
+            }
+            catch (Exception)
             {
                 return false;
             }
