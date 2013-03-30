@@ -13,9 +13,9 @@ function build-clean() {
     param ([string]$fileName = $(throw "Need a project file name"))
     $name = split-path -leaf $fileName
     write-host "`t$name"
-    & $msbuild /nologo /verbosity:m /t:Clean /p:Configuration=Release $fileName
+    & $msbuild /nologo /verbosity:m /t:Clean /p:Configuration=Release /p:VisualStudioVersion=10.0 $fileName
     test-return
-    & $msbuild /nologo /verbosity:m /t:Clean /p:Configuration=Debug $fileName
+    & $msbuild /nologo /verbosity:m /t:Clean /p:Configuration=Debug /p:VisualStudioVersion=10.0 $fileName
     test-return
 }
 
@@ -23,7 +23,7 @@ function build-release() {
     param ([string]$fileName = $(throw "Need a project file name"))
     $name = split-path -leaf $fileName
     write-host "`t$name"
-    & $msbuild /nologo /verbosity:q /p:Configuration=Release $fileName
+    & $msbuild /nologo /verbosity:q /p:Configuration=Release /p:VisualStudioVersion=10.0 $fileName
     test-return
 }
 
