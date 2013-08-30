@@ -24,111 +24,14 @@ namespace EditorUtils
     /// </summary>
     public class EditorHost
     {
-        #region Undo / Redo MEF Registration
+        #region UndoExportProvider
 
-        /*
         /// <summary>
         /// In order to host the editor we need to provide an ITextUndoHistory export.  However 
         /// we can't simply export it from the DLL because it would conflict with Visual Studio's
         /// export of ITextUndoHistoryRegistry in the default scenario.  This ComposablePartCatalog
         /// is simply here to hand export the type in the hosted scenario only
         /// </summary>
-        private sealed class UndoCatalog : ComposablePartCatalog
-        {
-            private IQueryable<ComposablePartDefinition> _parts;
-
-            internal UndoCatalog()
-            {
-                ComposablePartDefinition[] parts = new[] { new UndoDefinition() };
-                _parts = parts.AsQueryable();
-            }
-
-            public override IQueryable<ComposablePartDefinition> Parts
-            {
-                get { return _parts; }
-            }
-        }
-
-        private sealed class UndoPart : ComposablePart
-        {
-            private readonly UndoDefinition _undoDefinition;
-            private IBasicUndoHistoryRegistry _basicUndoHistoryRegitry;
-
-            internal UndoPart(UndoDefinition undoDefinition)
-            {
-                _undoDefinition = undoDefinition;
-            }
-
-            public override IEnumerable<ExportDefinition> ExportDefinitions
-            {
-                get { return _undoDefinition.ExportDefinitions; }
-            }
-
-            public override object GetExportedValue(ExportDefinition definition)
-            {
-                // Import should have provided this value
-                Contract.Assert(_basicUndoHistoryRegitry != null);
-                return _basicUndoHistoryRegitry.TextUndoHistoryRegistry;
-            }
-
-            public override IEnumerable<ImportDefinition> ImportDefinitions
-            {
-                get { return _undoDefinition.ImportDefinitions; }
-            }
-
-            public override void SetImport(ImportDefinition definition, IEnumerable<Export> exports)
-            {
-                _basicUndoHistoryRegitry = (IBasicUndoHistoryRegistry)exports.Single().Value;
-            }
-        }
-
-        private sealed class UndoDefinition : ComposablePartDefinition
-        {
-            private readonly ReadOnlyCollection<ExportDefinition> _exportDefinitions;
-            private readonly ReadOnlyCollection<ImportDefinition> _importDefinitions;
-
-            internal UndoDefinition()
-            {
-                var metadata = new Dictionary<string, object>();
-                metadata.Add(
-                    CompositionConstants.ExportTypeIdentityMetadataName,
-                    AttributedModelServices.GetTypeIdentity(typeof(ITextUndoHistoryRegistry)));
-
-                var exportDefinition = new ExportDefinition(
-                    AttributedModelServices.GetContractName(typeof(ITextUndoHistoryRegistry)),
-                    metadata);
-                _exportDefinitions = (new[] { exportDefinition }).ToReadOnlyCollection();
-
-                var importDefinition = new ImportDefinition(
-                    export =>
-                        export.ContractName == Constants.ContractName &&
-                        (string)export.Metadata[CompositionConstants.ExportTypeIdentityMetadataName] == AttributedModelServices.GetTypeIdentity(typeof(IBasicUndoHistoryRegistry)),
-                    Constants.ContractName,
-                    ImportCardinality.ExactlyOne,
-                    isRecomposable: false,
-                    isPrerequisite: true);
-
-                _importDefinitions = (new[] { importDefinition }).ToReadOnlyCollection();
-            }
-
-            public override ComposablePart CreatePart()
-            {
-                return new UndoPart(this);
-            }
-
-            public override IEnumerable<ExportDefinition> ExportDefinitions
-            {
-                get { return _exportDefinitions; }
-            }
-
-            public override IEnumerable<ImportDefinition> ImportDefinitions
-            {
-                get { return _importDefinitions; }
-            }
-        }
-
-         */
-
         private sealed class UndoExportProvider : ExportProvider
         {
             private readonly IBasicUndoHistoryRegistry _basicUndoHistoryRegistry;
@@ -335,13 +238,36 @@ namespace EditorUtils
         {
             if (_editorUtilsCompositionContainer == null)
             {
-                var list = GetEditorUtilsCatalog();
-                var catalog = new AggregateCatalog(list.ToArray());
-                // MOTODO: got to fix this up.  The API is now horrible for consuming EditorUtils versions
-                _editorUtilsCompositionContainer = new CompositionContainer(catalog, new UndoExportProvider());
+                var composablePartCatalogList = new List<ComposablePartCatalog>();
+                var exportProviderList = new List<ExportProvider>();
+
+                // First allow the derived type to insert any catalogs or providers that 
+                // it wants to add
+                GetEditorHostParts(composablePartCatalogList, exportProviderList);
+
+                // Now get the core editor catalog information
+                if (!TryGetEditorCatalog(composablePartCatalogList))
+                {
+                    throw new Exception("Could not locate the editor components.  Is Visual Studio installed?");
+                }
+
+                // Add in our custom undo export 
+                exportProviderList.Add(new UndoExportProvider());
+
+                var catalog = new AggregateCatalog(composablePartCatalogList.ToArray());
+                _editorUtilsCompositionContainer = new CompositionContainer(catalog, exportProviderList.ToArray());
             }
 
             return _editorUtilsCompositionContainer;
+        }
+
+        /// <summary>
+        /// This method allows the host of EditorHost to provide additional ComposablePartCatalog instances or 
+        /// ExportProvider values 
+        /// </summary>
+        protected virtual void GetEditorHostParts(List<ComposablePartCatalog> composablePartCatalogList, List<ExportProvider> exportProviderList)
+        {
+
         }
 
         /// <summary>
@@ -364,33 +290,6 @@ namespace EditorUtils
             var errorHandlers = _compositionContainer.GetExportedValues<IExtensionErrorHandler>();
             _protectedOperations = EditorUtilsFactory.CreateProtectedOperations(errorHandlers);
             _basicUndoHistoryRegistry = _compositionContainer.GetExportedValue<IBasicUndoHistoryRegistry>();
-        }
-
-        /// <summary>
-        /// Get the Catalog parts which are necessary to spin up instances of the editor
-        /// </summary>
-        protected static List<ComposablePartCatalog> GetEditorCatalog()
-        {
-            var list = new List<ComposablePartCatalog>();
-            if (!TryGetEditorCatalog(list))
-            {
-                throw new Exception("Could not locate the editor components.  Is Visual Studio installed?");
-            }
-
-            /*
-            // There is no default IUndoHistoryRegistry provided so I need to provide it here just to 
-            // satisfy the MEF import.  
-            list.Add(new UndoCatalog());
-            */
-
-            return list;
-        }
-
-        protected static List<ComposablePartCatalog> GetEditorUtilsCatalog()
-        {
-            var list = GetEditorCatalog();
-            list.Add(new AssemblyCatalog(typeof(EditorUtilsFactory).Assembly));
-            return list;
         }
 
         /// <summary>
