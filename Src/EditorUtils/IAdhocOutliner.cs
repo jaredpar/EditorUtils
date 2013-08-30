@@ -37,16 +37,4 @@ namespace EditorUtils
         /// </summary>
         event EventHandler Changed;
     }
-
-    /// <summary>
-    /// Factory for acquiring instances of the IAdhocOutliner.  This type is available as a MEF
-    /// service
-    /// </summary>
-    public interface IAdhocOutlinerFactory
-    {
-        /// <summary>
-        /// Get the IAdhocOutliner associated with this ITextBuffer
-        /// </summary>
-        IAdhocOutliner GetAdhocOutliner(ITextBuffer textBuffer);
-    }
 }

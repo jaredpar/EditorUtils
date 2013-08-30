@@ -18,7 +18,7 @@ using System.IO;
 namespace EditorUtils
 {
     /// <summary>
-    /// Base class for hosting editor compontents.  This is primarily used for unit 
+    /// Base class for hosting editor components.  This is primarily used for unit 
     /// testing. Any test base can derive from this and use the Create* methods to get
     /// ITextBuffer instances to run their tests against. 
     /// </summary>
@@ -26,6 +26,7 @@ namespace EditorUtils
     {
         #region Undo / Redo MEF Registration
 
+        /*
         /// <summary>
         /// In order to host the editor we need to provide an ITextUndoHistory export.  However 
         /// we can't simply export it from the DLL because it would conflict with Visual Studio's
@@ -126,6 +127,33 @@ namespace EditorUtils
             }
         }
 
+         */
+
+        private sealed class UndoExportProvider : ExportProvider
+        {
+            private readonly IBasicUndoHistoryRegistry _basicUndoHistoryRegistry;
+            private readonly string _textUndoHistoryRegistryContractName;
+            private readonly string _basicUndoHistoryRegistryContractName;
+            private readonly Export _export;
+
+            internal UndoExportProvider()
+            {
+                _textUndoHistoryRegistryContractName = AttributedModelServices.GetContractName(typeof(ITextUndoHistoryRegistry));
+                _basicUndoHistoryRegistryContractName = AttributedModelServices.GetContractName(typeof(IBasicUndoHistoryRegistry));
+                _basicUndoHistoryRegistry = EditorUtilsFactory.CreateBasicUndoHistoryRegistry();
+                _export = new Export(_textUndoHistoryRegistryContractName, () => _basicUndoHistoryRegistry);
+            }
+
+            protected override IEnumerable<Export> GetExportsCore(ImportDefinition definition, AtomicComposition atomicComposition)
+            {
+                if (definition.ContractName == _textUndoHistoryRegistryContractName ||
+                    definition.ContractName == _basicUndoHistoryRegistryContractName)
+                {
+                    yield return _export;
+                }
+            }
+        }
+
         #endregion
 
         private static readonly string[] EditorComponents =
@@ -162,8 +190,6 @@ namespace EditorUtils
         private ITextSearchService _textSearchService;
         private ITextBufferUndoManagerProvider _textBufferUndoManagerProvider;
         private IContentTypeRegistryService _contentTypeRegistryService;
-        private IAdhocOutlinerFactory _adhocOutlinerFactory;
-        private ITaggerFactory _taggerFactory;
         private IProtectedOperations _protectedOperations;
         private IBasicUndoHistoryRegistry _basicUndoHistoryRegistry;
 
@@ -220,16 +246,6 @@ namespace EditorUtils
         public IContentTypeRegistryService ContentTypeRegistryService
         {
             get { return _contentTypeRegistryService; }
-        }
-
-        public IAdhocOutlinerFactory AdhocOutlinerFactory
-        {
-            get { return _adhocOutlinerFactory; }
-        }
-
-        public ITaggerFactory TaggerFactory
-        {
-            get { return _taggerFactory; }
         }
 
         public IProtectedOperations ProtectedOperations
@@ -321,7 +337,8 @@ namespace EditorUtils
             {
                 var list = GetEditorUtilsCatalog();
                 var catalog = new AggregateCatalog(list.ToArray());
-                _editorUtilsCompositionContainer = new CompositionContainer(catalog);
+                // MOTODO: got to fix this up.  The API is now horrible for consuming EditorUtils versions
+                _editorUtilsCompositionContainer = new CompositionContainer(catalog, new UndoExportProvider());
             }
 
             return _editorUtilsCompositionContainer;
@@ -343,10 +360,10 @@ namespace EditorUtils
             _outliningManagerService = _compositionContainer.GetExportedValue<IOutliningManagerService>();
             _textBufferUndoManagerProvider = _compositionContainer.GetExportedValue<ITextBufferUndoManagerProvider>();
             _contentTypeRegistryService = _compositionContainer.GetExportedValue<IContentTypeRegistryService>();
-            _adhocOutlinerFactory = _compositionContainer.GetExportedValue<IAdhocOutlinerFactory>(Constants.ContractName);
-            _taggerFactory = _compositionContainer.GetExportedValue<ITaggerFactory>(Constants.ContractName);
-            _protectedOperations = _compositionContainer.GetExportedValue<IProtectedOperations>(Constants.ContractName);
-            _basicUndoHistoryRegistry = _compositionContainer.GetExportedValue<IBasicUndoHistoryRegistry>(Constants.ContractName);
+
+            var errorHandlers = _compositionContainer.GetExportedValues<IExtensionErrorHandler>();
+            _protectedOperations = EditorUtilsFactory.CreateProtectedOperations(errorHandlers);
+            _basicUndoHistoryRegistry = _compositionContainer.GetExportedValue<IBasicUndoHistoryRegistry>();
         }
 
         /// <summary>
@@ -360,9 +377,11 @@ namespace EditorUtils
                 throw new Exception("Could not locate the editor components.  Is Visual Studio installed?");
             }
 
+            /*
             // There is no default IUndoHistoryRegistry provided so I need to provide it here just to 
             // satisfy the MEF import.  
             list.Add(new UndoCatalog());
+            */
 
             return list;
         }
@@ -370,7 +389,7 @@ namespace EditorUtils
         protected static List<ComposablePartCatalog> GetEditorUtilsCatalog()
         {
             var list = GetEditorCatalog();
-            list.Add(new AssemblyCatalog(typeof(ITaggerFactory).Assembly));
+            list.Add(new AssemblyCatalog(typeof(EditorUtilsFactory).Assembly));
             return list;
         }
 

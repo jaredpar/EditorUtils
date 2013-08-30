@@ -16,7 +16,7 @@ namespace EditorUtils.UnitTest
         {
             var list = new List<Type>();
             var seen = new HashSet<Type>();
-            var toVisit = new Stack<Type>(typeof(ITaggerFactory).Assembly.GetTypes());
+            var toVisit = new Stack<Type>(typeof(EditorUtilsFactory).Assembly.GetTypes());
             while (toVisit.Count > 0)
             {
                 var current = toVisit.Pop();
@@ -43,7 +43,7 @@ namespace EditorUtils.UnitTest
         [Fact]
         public void ExportMustHaveContractName()
         {
-            var assembly = typeof(ITaggerFactory).Assembly;
+            var assembly = typeof(EditorUtilsFactory).Assembly;
             foreach (var cur in GetAllTypes())
             {
                 var all = cur

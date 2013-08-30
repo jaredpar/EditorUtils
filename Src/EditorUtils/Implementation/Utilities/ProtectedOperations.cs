@@ -12,13 +12,11 @@ namespace EditorUtils.Implementation.Utilities
     /// Implements the safe dispatching interface which prevents application crashes for 
     /// exceptions reaching the dispatcher loop
     /// </summary>
-    [Export(Constants.ContractName, typeof(IProtectedOperations))]
     internal sealed class ProtectedOperations : IProtectedOperations
     {
         private readonly List<Lazy<IExtensionErrorHandler>> _errorHandlers;
 
-        [ImportingConstructor]
-        internal ProtectedOperations([ImportMany]IEnumerable<Lazy<IExtensionErrorHandler>> errorHandlers)
+        internal ProtectedOperations(IEnumerable<Lazy<IExtensionErrorHandler>> errorHandlers)
         {
             _errorHandlers = errorHandlers.ToList();
         }
@@ -98,6 +96,8 @@ namespace EditorUtils.Implementation.Utilities
             }
         }
 
+        #region IProtectedOperations
+
         void IProtectedOperations.BeginInvoke(Action action)
         {
             var protectedAction = GetProtectedAction(action);
@@ -124,6 +124,8 @@ namespace EditorUtils.Implementation.Utilities
         {
             AlertAll(ex);
         }
+
+        #endregion
     }
 }
 
