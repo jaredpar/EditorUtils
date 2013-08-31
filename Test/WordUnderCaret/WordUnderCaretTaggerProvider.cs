@@ -17,14 +17,7 @@ namespace WordUnderCaret
     [TagType(typeof(TextMarkerTag))]
     internal sealed class WordUnderCaretTaggerProvider : IViewTaggerProvider
     {
-        private readonly ITaggerFactory _taggerFactory;
         private readonly object _key = new object();
-
-        [ImportingConstructor]
-        internal WordUnderCaretTaggerProvider([EditorUtilsImport] ITaggerFactory taggerFactory)
-        {
-            _taggerFactory = taggerFactory;
-        }
 
         #region IViewTaggerProvider
 
@@ -35,7 +28,7 @@ namespace WordUnderCaret
                 return null;
             }
 
-            var tagger = _taggerFactory.CreateAsyncTagger<string, TextMarkerTag>(
+            var tagger = EditorUtilsFactory.CreateAsyncTagger<string, TextMarkerTag>(
                 textView.Properties,
                 _key,
                 () => new WordUnderCaretTagger(textView));
