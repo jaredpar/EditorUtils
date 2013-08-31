@@ -14,7 +14,7 @@ namespace EditorUtils
 #if DEBUG
         internal const string AssemblyVersion = "99.0.0.0";
 #else
-        internal const string AssemblyVersion = "1.1.0.0";
+        internal const string AssemblyVersion = "1.2.0.0";
 #endif
 
         /// <summary>
