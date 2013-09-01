@@ -234,7 +234,7 @@ namespace EditorUtils
         /// The MEF composition container for the current thread.  We cache all of our compositions in this
         /// container to speed up the unit tests
         /// </summary>
-        protected virtual CompositionContainer GetOrCreateCompositionContainer()
+        protected CompositionContainer GetOrCreateCompositionContainer()
         {
             if (_editorUtilsCompositionContainer == null)
             {
