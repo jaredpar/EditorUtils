@@ -80,7 +80,7 @@ namespace EditorUtils
             };
 
         [ThreadStatic]
-        private static CompositionContainer _editorUtilsCompositionContainer;
+        private static CompositionContainer _compositionContainerCache;
 
         private CompositionContainer _compositionContainer;
         private ITextBufferFactoryService _textBufferFactoryService;
@@ -95,6 +95,18 @@ namespace EditorUtils
         private IContentTypeRegistryService _contentTypeRegistryService;
         private IProtectedOperations _protectedOperations;
         private IBasicUndoHistoryRegistry _basicUndoHistoryRegistry;
+
+        /// <summary>
+        /// This is the CompositionContainer property which is used to cache the CompositionContainer instance
+        /// between EditorHost instances.  By default it will be cached on a per thread basis.  Derived
+        /// types can override this property to provide alternate storage or use it to clear out the existing
+        /// cache
+        /// </summary>
+        public virtual CompositionContainer CompositionContainerCache
+        {
+            get { return _compositionContainerCache; }
+            set { _compositionContainerCache = value; }
+        }
 
         public CompositionContainer CompositionContainer
         {
@@ -234,31 +246,33 @@ namespace EditorUtils
         /// The MEF composition container for the current thread.  We cache all of our compositions in this
         /// container to speed up the unit tests
         /// </summary>
-        protected CompositionContainer GetOrCreateCompositionContainer()
+        private CompositionContainer GetOrCreateCompositionContainer()
         {
-            if (_editorUtilsCompositionContainer == null)
+            if (CompositionContainerCache != null)
             {
-                var composablePartCatalogList = new List<ComposablePartCatalog>();
-                var exportProviderList = new List<ExportProvider>();
-
-                // First allow the derived type to insert any catalogs or providers that 
-                // it wants to add
-                GetEditorHostParts(composablePartCatalogList, exportProviderList);
-
-                // Now get the core editor catalog information
-                if (!TryGetEditorCatalog(composablePartCatalogList))
-                {
-                    throw new Exception("Could not locate the editor components.  Is Visual Studio installed?");
-                }
-
-                // Add in our custom undo export 
-                exportProviderList.Add(new UndoExportProvider());
-
-                var catalog = new AggregateCatalog(composablePartCatalogList.ToArray());
-                _editorUtilsCompositionContainer = new CompositionContainer(catalog, exportProviderList.ToArray());
+                return CompositionContainerCache;
             }
 
-            return _editorUtilsCompositionContainer;
+            var composablePartCatalogList = new List<ComposablePartCatalog>();
+            var exportProviderList = new List<ExportProvider>();
+
+            // First allow the derived type to insert any catalogs or providers that 
+            // it wants to add
+            GetEditorHostParts(composablePartCatalogList, exportProviderList);
+
+            // Now get the core editor catalog information
+            if (!TryGetEditorCatalog(composablePartCatalogList))
+            {
+                throw new Exception("Could not locate the editor components.  Is Visual Studio installed?");
+            }
+
+            // Add in our custom undo export 
+            exportProviderList.Add(new UndoExportProvider());
+
+            var catalog = new AggregateCatalog(composablePartCatalogList.ToArray());
+            var compositionContainer = new CompositionContainer(catalog, exportProviderList.ToArray());
+            CompositionContainerCache = compositionContainer;
+            return compositionContainer;
         }
 
         /// <summary>
@@ -273,7 +287,7 @@ namespace EditorUtils
         /// <summary>
         /// Fully reset the composition container and all exported values
         /// </summary>
-        protected void Reset()
+        public  void Reset()
         {
             _compositionContainer = GetOrCreateCompositionContainer();
             _textBufferFactoryService = _compositionContainer.GetExportedValue<ITextBufferFactoryService>();
