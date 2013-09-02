@@ -13,14 +13,11 @@ namespace Cats
     [TagType(typeof(TextMarkerTag))]
     internal sealed class CatTaggerProvider : IViewTaggerProvider
     {
-        private readonly ITaggerFactory _taggerFactory;
         private readonly object _key = new object();
 
         [ImportingConstructor]
-        internal CatTaggerProvider([EditorUtilsImport] ITaggerFactory taggerFactory)
+        internal CatTaggerProvider()
         {
-            _taggerFactory = taggerFactory;
-
 #if DEBUG
             EditorUtilsTrace.TraceSwitch.Level = System.Diagnostics.TraceLevel.Info;
 #endif
@@ -35,7 +32,7 @@ namespace Cats
                 return null;
             }
 
-            var tagger = _taggerFactory.CreateAsyncTagger<string, TextMarkerTag>(
+            var tagger = EditorUtilsFactory.CreateAsyncTagger<string, TextMarkerTag>(
                 textView.Properties,
                 _key,
                 () => new CatTagger(textView));

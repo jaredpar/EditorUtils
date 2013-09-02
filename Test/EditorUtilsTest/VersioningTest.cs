@@ -16,7 +16,7 @@ namespace EditorUtils.UnitTest
         {
             var list = new List<Type>();
             var seen = new HashSet<Type>();
-            var toVisit = new Stack<Type>(typeof(ITaggerFactory).Assembly.GetTypes());
+            var toVisit = new Stack<Type>(typeof(EditorUtilsFactory).Assembly.GetTypes());
             while (toVisit.Count > 0)
             {
                 var current = toVisit.Pop();
@@ -36,24 +36,36 @@ namespace EditorUtils.UnitTest
         }
 
         /// <summary>
-        /// Make sure that every Export in the system uses ContractName.  Because MEF doesn't use 
-        /// assembly qualified type names for matching we have to use the ContractName to create 
-        /// versioning
+        /// Make sure that there are no Export values in the system.  EditorUtils does not use MEF to 
+        /// provide parts to consumers
         /// </summary>
         [Fact]
-        public void ExportMustHaveContractName()
+        public void EnsureNoExports()
         {
-            var assembly = typeof(ITaggerFactory).Assembly;
+            var assembly = typeof(EditorUtilsFactory).Assembly;
             foreach (var cur in GetAllTypes())
             {
                 var all = cur
                     .GetCustomAttributes(typeof(ExportAttribute), false)
-                    .Cast<ExportAttribute>()
-                    .Where(x => x.ContractType.Assembly == assembly);
-                foreach (var attr in all)
+                    .Cast<ExportAttribute>();
+                Assert.Equal(0, all.Count());
+            }
+        }
+
+        /// <summary>
+        /// Make sure there are no Import values in the system.  EditorUtils does not use MEF hence 
+        /// there can be no [ImportingConstructors]
+        /// </summary>
+        [Fact]
+        public void EnsureNoImportingConstructors()
+        {
+            var assembly = typeof(EditorUtilsFactory).Assembly;
+            foreach (var cur in GetAllTypes())
+            {
+                foreach (var constructorInfo in cur.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic))
                 {
-                    // Make sure that the given export has the conrtact name
-                    Assert.Equal(Constants.ContractName, attr.ContractName);
+                    var all = constructorInfo.GetCustomAttributes(typeof(ImportingConstructorAttribute), false);
+                    Assert.Equal(0, all.Count());
                 }
             }
         }

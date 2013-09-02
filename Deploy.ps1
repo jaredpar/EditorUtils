@@ -43,39 +43,6 @@ function test-unittests() {
     }
 }
 
-# Ensure the EditorUtils VSIX has all of the appropriate version numbers.  They must
-# match the ones on EditorUtils.dll so that we can deploy a matching EditorUtils.vsix
-# projet for every version of the DLL 
-function test-vsix() { 
-    param ([string]$version = $(throw "Need a version number"))
-
-    $target = join-path $scriptPath "Src\EditorUtilsVsix\source.extension.vsixmanifest"
-    if (-not (test-path $target)) {
-        write-error "Can't find the manifest file for EditorUtilsVsix"
-        return
-    }
-
-    $count = 0
-    foreach ($line in gc $target) {
-        if ($line.Contains("<Identifier") -or
-            $line.Contains("<Name>") -or
-            $line.Contains("<Version>")) { 
-
-            if (-not $line.Contains($version)) {
-                write-host $line
-                write-error "Manifest file has wrong version in element"
-                return
-            }
-
-            $count++
-        }
-    }
-
-    if ($count -ne 3) { 
-        write-error "Manifest file version information incorrect.  Expected 3 found $count"
-    }
-}
-
 # Get the version number of the package that we are deploying 
 function get-version() { 
     write-host "Testing Version Numbers"
@@ -150,14 +117,12 @@ if (-not $fast) {
 # test infrastructure
 write-host "Building Projects"
 build-release Src\EditorUtils\EditorUtils.csproj
-build-release Src\EditorUtilsVsix\EditorUtilsVsix.csproj
 build-release Test\EditorUtilsTest\EditorUtilsTest.csproj
 
 write-host "`tDetermining Version Number"
 $version = get-version
 
 # Next run the tests
-test-vsix $version
 test-unittests
 
 # Now do the NuGet work 

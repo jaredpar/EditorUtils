@@ -7,7 +7,7 @@ using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Utilities;
 
-namespace EditorUtils.Implementation.Outlining
+namespace EditorUtils.Implementation.Utilities
 {
     /// <summary>
     /// Implementation of the IAdhocOutliner service.  This class is only used for testing
