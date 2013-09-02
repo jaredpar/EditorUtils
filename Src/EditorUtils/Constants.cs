@@ -14,23 +14,12 @@ namespace EditorUtils
 #if DEBUG
         internal const string AssemblyVersion = "99.0.0.0";
 #else
-        internal const string AssemblyVersion = "1.1.0.0";
+        internal const string AssemblyVersion = "1.2.0.0";
 #endif
 
         /// <summary>
         /// Standard delay for asynchronous taggers
         /// </summary>
         public const int DefaultAsyncDelay = 100;
-
-        /// <summary>
-        /// The contract name used for every MEF export in the system.  This is a versioned assembly which
-        /// can appear in the same catalog as other instances of itself at different versions.  The 
-        /// contract name is used to guarantee we don't satsify contracts across versions.
-        /// 
-        /// By default MEF only usse the non-assembly qualified name to match Import / Export pairs. So
-        /// in a versioned world it will incorrectly match types from different versions of the DLL.  The 
-        /// ContractName allows us to add versioning information into the Export / Import values
-        /// </summary>
-        public const string ContractName = "EditorUtils:" + AssemblyVersion;
     }
 }

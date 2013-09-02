@@ -18,13 +18,13 @@ using System.IO;
 namespace EditorUtils
 {
     /// <summary>
-    /// Base class for hosting editor compontents.  This is primarily used for unit 
+    /// Base class for hosting editor components.  This is primarily used for unit 
     /// testing. Any test base can derive from this and use the Create* methods to get
     /// ITextBuffer instances to run their tests against. 
     /// </summary>
     public class EditorHost
     {
-        #region Undo / Redo MEF Registration
+        #region UndoExportProvider
 
         /// <summary>
         /// In order to host the editor we need to provide an ITextUndoHistory export.  However 
@@ -32,97 +32,28 @@ namespace EditorUtils
         /// export of ITextUndoHistoryRegistry in the default scenario.  This ComposablePartCatalog
         /// is simply here to hand export the type in the hosted scenario only
         /// </summary>
-        private sealed class UndoCatalog : ComposablePartCatalog
+        private sealed class UndoExportProvider : ExportProvider
         {
-            private IQueryable<ComposablePartDefinition> _parts;
+            private readonly IBasicUndoHistoryRegistry _basicUndoHistoryRegistry;
+            private readonly string _textUndoHistoryRegistryContractName;
+            private readonly string _basicUndoHistoryRegistryContractName;
+            private readonly Export _export;
 
-            internal UndoCatalog()
+            internal UndoExportProvider()
             {
-                ComposablePartDefinition[] parts = new[] { new UndoDefinition() };
-                _parts = parts.AsQueryable();
+                _textUndoHistoryRegistryContractName = AttributedModelServices.GetContractName(typeof(ITextUndoHistoryRegistry));
+                _basicUndoHistoryRegistryContractName = AttributedModelServices.GetContractName(typeof(IBasicUndoHistoryRegistry));
+                _basicUndoHistoryRegistry = EditorUtilsFactory.CreateBasicUndoHistoryRegistry();
+                _export = new Export(_textUndoHistoryRegistryContractName, () => _basicUndoHistoryRegistry);
             }
 
-            public override IQueryable<ComposablePartDefinition> Parts
+            protected override IEnumerable<Export> GetExportsCore(ImportDefinition definition, AtomicComposition atomicComposition)
             {
-                get { return _parts; }
-            }
-        }
-
-        private sealed class UndoPart : ComposablePart
-        {
-            private readonly UndoDefinition _undoDefinition;
-            private IBasicUndoHistoryRegistry _basicUndoHistoryRegitry;
-
-            internal UndoPart(UndoDefinition undoDefinition)
-            {
-                _undoDefinition = undoDefinition;
-            }
-
-            public override IEnumerable<ExportDefinition> ExportDefinitions
-            {
-                get { return _undoDefinition.ExportDefinitions; }
-            }
-
-            public override object GetExportedValue(ExportDefinition definition)
-            {
-                // Import should have provided this value
-                Contract.Assert(_basicUndoHistoryRegitry != null);
-                return _basicUndoHistoryRegitry.TextUndoHistoryRegistry;
-            }
-
-            public override IEnumerable<ImportDefinition> ImportDefinitions
-            {
-                get { return _undoDefinition.ImportDefinitions; }
-            }
-
-            public override void SetImport(ImportDefinition definition, IEnumerable<Export> exports)
-            {
-                _basicUndoHistoryRegitry = (IBasicUndoHistoryRegistry)exports.Single().Value;
-            }
-        }
-
-        private sealed class UndoDefinition : ComposablePartDefinition
-        {
-            private readonly ReadOnlyCollection<ExportDefinition> _exportDefinitions;
-            private readonly ReadOnlyCollection<ImportDefinition> _importDefinitions;
-
-            internal UndoDefinition()
-            {
-                var metadata = new Dictionary<string, object>();
-                metadata.Add(
-                    CompositionConstants.ExportTypeIdentityMetadataName,
-                    AttributedModelServices.GetTypeIdentity(typeof(ITextUndoHistoryRegistry)));
-
-                var exportDefinition = new ExportDefinition(
-                    AttributedModelServices.GetContractName(typeof(ITextUndoHistoryRegistry)),
-                    metadata);
-                _exportDefinitions = (new[] { exportDefinition }).ToReadOnlyCollection();
-
-                var importDefinition = new ImportDefinition(
-                    export =>
-                        export.ContractName == Constants.ContractName &&
-                        (string)export.Metadata[CompositionConstants.ExportTypeIdentityMetadataName] == AttributedModelServices.GetTypeIdentity(typeof(IBasicUndoHistoryRegistry)),
-                    Constants.ContractName,
-                    ImportCardinality.ExactlyOne,
-                    isRecomposable: false,
-                    isPrerequisite: true);
-
-                _importDefinitions = (new[] { importDefinition }).ToReadOnlyCollection();
-            }
-
-            public override ComposablePart CreatePart()
-            {
-                return new UndoPart(this);
-            }
-
-            public override IEnumerable<ExportDefinition> ExportDefinitions
-            {
-                get { return _exportDefinitions; }
-            }
-
-            public override IEnumerable<ImportDefinition> ImportDefinitions
-            {
-                get { return _importDefinitions; }
+                if (definition.ContractName == _textUndoHistoryRegistryContractName ||
+                    definition.ContractName == _basicUndoHistoryRegistryContractName)
+                {
+                    yield return _export;
+                }
             }
         }
 
@@ -149,7 +80,7 @@ namespace EditorUtils
             };
 
         [ThreadStatic]
-        private static CompositionContainer _editorUtilsCompositionContainer;
+        private static CompositionContainer _compositionContainerCache;
 
         private CompositionContainer _compositionContainer;
         private ITextBufferFactoryService _textBufferFactoryService;
@@ -162,10 +93,20 @@ namespace EditorUtils
         private ITextSearchService _textSearchService;
         private ITextBufferUndoManagerProvider _textBufferUndoManagerProvider;
         private IContentTypeRegistryService _contentTypeRegistryService;
-        private IAdhocOutlinerFactory _adhocOutlinerFactory;
-        private ITaggerFactory _taggerFactory;
         private IProtectedOperations _protectedOperations;
         private IBasicUndoHistoryRegistry _basicUndoHistoryRegistry;
+
+        /// <summary>
+        /// This is the CompositionContainer property which is used to cache the CompositionContainer instance
+        /// between EditorHost instances.  By default it will be cached on a per thread basis.  Derived
+        /// types can override this property to provide alternate storage or use it to clear out the existing
+        /// cache
+        /// </summary>
+        public virtual CompositionContainer CompositionContainerCache
+        {
+            get { return _compositionContainerCache; }
+            set { _compositionContainerCache = value; }
+        }
 
         public CompositionContainer CompositionContainer
         {
@@ -220,16 +161,6 @@ namespace EditorUtils
         public IContentTypeRegistryService ContentTypeRegistryService
         {
             get { return _contentTypeRegistryService; }
-        }
-
-        public IAdhocOutlinerFactory AdhocOutlinerFactory
-        {
-            get { return _adhocOutlinerFactory; }
-        }
-
-        public ITaggerFactory TaggerFactory
-        {
-            get { return _taggerFactory; }
         }
 
         public IProtectedOperations ProtectedOperations
@@ -315,22 +246,48 @@ namespace EditorUtils
         /// The MEF composition container for the current thread.  We cache all of our compositions in this
         /// container to speed up the unit tests
         /// </summary>
-        protected virtual CompositionContainer GetOrCreateCompositionContainer()
+        private CompositionContainer GetOrCreateCompositionContainer()
         {
-            if (_editorUtilsCompositionContainer == null)
+            if (CompositionContainerCache != null)
             {
-                var list = GetEditorUtilsCatalog();
-                var catalog = new AggregateCatalog(list.ToArray());
-                _editorUtilsCompositionContainer = new CompositionContainer(catalog);
+                return CompositionContainerCache;
             }
 
-            return _editorUtilsCompositionContainer;
+            var composablePartCatalogList = new List<ComposablePartCatalog>();
+            var exportProviderList = new List<ExportProvider>();
+
+            // First allow the derived type to insert any catalogs or providers that 
+            // it wants to add
+            GetEditorHostParts(composablePartCatalogList, exportProviderList);
+
+            // Now get the core editor catalog information
+            if (!TryGetEditorCatalog(composablePartCatalogList))
+            {
+                throw new Exception("Could not locate the editor components.  Is Visual Studio installed?");
+            }
+
+            // Add in our custom undo export 
+            exportProviderList.Add(new UndoExportProvider());
+
+            var catalog = new AggregateCatalog(composablePartCatalogList.ToArray());
+            var compositionContainer = new CompositionContainer(catalog, exportProviderList.ToArray());
+            CompositionContainerCache = compositionContainer;
+            return compositionContainer;
+        }
+
+        /// <summary>
+        /// This method allows the host of EditorHost to provide additional ComposablePartCatalog instances or 
+        /// ExportProvider values 
+        /// </summary>
+        protected virtual void GetEditorHostParts(List<ComposablePartCatalog> composablePartCatalogList, List<ExportProvider> exportProviderList)
+        {
+
         }
 
         /// <summary>
         /// Fully reset the composition container and all exported values
         /// </summary>
-        protected void Reset()
+        public  void Reset()
         {
             _compositionContainer = GetOrCreateCompositionContainer();
             _textBufferFactoryService = _compositionContainer.GetExportedValue<ITextBufferFactoryService>();
@@ -343,35 +300,10 @@ namespace EditorUtils
             _outliningManagerService = _compositionContainer.GetExportedValue<IOutliningManagerService>();
             _textBufferUndoManagerProvider = _compositionContainer.GetExportedValue<ITextBufferUndoManagerProvider>();
             _contentTypeRegistryService = _compositionContainer.GetExportedValue<IContentTypeRegistryService>();
-            _adhocOutlinerFactory = _compositionContainer.GetExportedValue<IAdhocOutlinerFactory>(Constants.ContractName);
-            _taggerFactory = _compositionContainer.GetExportedValue<ITaggerFactory>(Constants.ContractName);
-            _protectedOperations = _compositionContainer.GetExportedValue<IProtectedOperations>(Constants.ContractName);
-            _basicUndoHistoryRegistry = _compositionContainer.GetExportedValue<IBasicUndoHistoryRegistry>(Constants.ContractName);
-        }
 
-        /// <summary>
-        /// Get the Catalog parts which are necessary to spin up instances of the editor
-        /// </summary>
-        protected static List<ComposablePartCatalog> GetEditorCatalog()
-        {
-            var list = new List<ComposablePartCatalog>();
-            if (!TryGetEditorCatalog(list))
-            {
-                throw new Exception("Could not locate the editor components.  Is Visual Studio installed?");
-            }
-
-            // There is no default IUndoHistoryRegistry provided so I need to provide it here just to 
-            // satisfy the MEF import.  
-            list.Add(new UndoCatalog());
-
-            return list;
-        }
-
-        protected static List<ComposablePartCatalog> GetEditorUtilsCatalog()
-        {
-            var list = GetEditorCatalog();
-            list.Add(new AssemblyCatalog(typeof(ITaggerFactory).Assembly));
-            return list;
+            var errorHandlers = _compositionContainer.GetExportedValues<IExtensionErrorHandler>();
+            _protectedOperations = EditorUtilsFactory.CreateProtectedOperations(errorHandlers);
+            _basicUndoHistoryRegistry = _compositionContainer.GetExportedValue<IBasicUndoHistoryRegistry>();
         }
 
         /// <summary>

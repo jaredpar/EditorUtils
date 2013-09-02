@@ -13,13 +13,7 @@
     </SupportedProducts>
     <SupportedFrameworkRuntimeEdition MinVersion="4.0" MaxVersion="4.0" />
   </Identifier>
-  <References>
-    <Reference Id="EditorUtilsVsix..5b3b8756-e1d7-4f07-bc0f-8f995063a6c4" MinVersion="1.0.0.0">
-      <Name>EditorUtilsVsix</Name>
-      <MoreInfoUrl>http://blogs.msdn.com/b/jaredpar</MoreInfoUrl>
-      <VsixPath>EditorUtilsVsix.vsix</VsixPath>
-    </Reference>
-  </References>
+  <References />
   <Content>
     <MefComponent>|%CurrentProject%|</MefComponent>
   </Content>

@@ -6,14 +6,17 @@ using Microsoft.VisualStudio.Text.Operations;
 namespace EditorUtils.Implementation.BasicUndo
 {
     /// <summary>
-    /// This class intentionally doesn't Export ITextUndoHistoryRegistry.  Doing that would conflict
-    /// with any hosted environment which provided an ITextUndoHistoryRegistry.  This class is 
-    /// intended to be a simple + non-default solution for hosts that don't
+    /// This class is intended to be a very simple ITextUndoHistoryRegistry implementation for hosts that
+    /// don't have a built-in undo mechanism
     /// </summary>
-    [Export(Constants.ContractName, typeof(IBasicUndoHistoryRegistry))]
     internal sealed class BasicTextUndoHistoryRegistry : ITextUndoHistoryRegistry, IBasicUndoHistoryRegistry
     {
         private readonly ConditionalWeakTable<object, IBasicUndoHistory> _map = new ConditionalWeakTable<object, IBasicUndoHistory>();
+
+        internal BasicTextUndoHistoryRegistry()
+        {
+
+        }
 
         private bool TryGetHistory(object context, out IBasicUndoHistory basicUndoHistory)
         {

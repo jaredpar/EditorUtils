@@ -20,7 +20,5 @@
   <files>
     <file src="Tools\*ps1" target="tools" /> 
     <file src="Tools\*psm1" target="tools" /> 
-    <file src="..\EditorUtilsVsix\bin\release\EditorUtilsVsix.vsix" target="tools" />
-    <file src="..\EditorUtilsVsix\ReadMe.txt" target="tools" />
   </files>
 </package>
