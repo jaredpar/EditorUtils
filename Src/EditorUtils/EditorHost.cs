@@ -349,16 +349,17 @@ namespace EditorUtils
         /// </summary>
         private static bool TryCalculateVersion(out string version, out string installDirectory)
         {
-            if (TryGetInstallDirectory("10.0", out installDirectory))
+            // The same pattern exists for all known versions of Visual Studio.  The editor was 
+            // introduced in version 10 (VS2010).  The max of 20 is arbitrary and just meant to 
+            // future proof this algorithm for some time into the future
+            for (int i = 10; i < 20; i++)
             {
-                version = "10.0.0.0";
-                return true;
-            }
-
-            if (TryGetInstallDirectory("11.0", out installDirectory))
-            {
-                version = "11.0.0.0";
-                return true;
+                var shortVersion = String.Format("{0}.0", i);
+                if (TryGetInstallDirectory(shortVersion, out installDirectory))
+                {
+                    version = String.Format("{0}.0.0.0", i);
+                    return true;
+                }
             }
 
             installDirectory = null;
