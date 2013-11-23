@@ -9,6 +9,10 @@
     <EditorUtilsAppConfig>$(MSBuildThisFileDirectory)References\Vs2012\App.config</EditorUtilsAppConfig>
   </PropertyGroup>
 
+  <PropertyGroup Condition=" '$(VisualStudioVersion)' == '12.0' ">
+    <EditorUtilsAppConfig>$(MSBuildThisFileDirectory)References\Vs2013\App.config</EditorUtilsAppConfig>
+  </PropertyGroup>
+
   <!-- Most projects build against the 2010 reference assemblies so make sure to include that in the path -->
   <PropertyGroup>
     <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2010</ReferencePath>
