@@ -89,6 +89,9 @@ namespace EditorUtils
                 // Standard non-express SKU of Visual Studio
                 "VisualStudio",
 
+                // Windows Desktop express
+                "WDExpress",
+
                 // Visual C# express
                 "VCSExpress",
 
