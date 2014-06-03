@@ -17,4 +17,10 @@
   <PropertyGroup>
     <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2010</ReferencePath>
   </PropertyGroup>
+
+  <!-- AppVeyor specific settings -->
+  <PropertyGroup Condition=" '$(AppVeyor)' != ''">
+    <!-- Do not deploy any VSIX outputs -->
+    <DeployExtension>False</DeployExtension>
+  </PropertyGroup>
 </Project>
