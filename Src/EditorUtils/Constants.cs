@@ -5,16 +5,12 @@ namespace EditorUtils
     {
         /// <summary>
         /// The version of the assembly.  This must be changed every time a new version of the utility 
-        /// library is published to MEF.  We absolutely depend on this being unique for every instance
-        /// which is available in the wild.
-        ///
-        /// The uniqueness of this name is necessary because we include it in the ContractName we export
-        /// for MEF components
+        /// library is published to NuGet
         /// </summary>
 #if DEBUG
         internal const string AssemblyVersion = "99.0.0.0";
 #else
-        internal const string AssemblyVersion = "1.2.0.0";
+        internal const string AssemblyVersion = "1.3.1.0";
 #endif
 
         /// <summary>
