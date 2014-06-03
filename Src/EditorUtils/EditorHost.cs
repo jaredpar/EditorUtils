@@ -281,10 +281,7 @@ namespace EditorUtils
             GetEditorHostParts(composablePartCatalogList, exportProviderList);
 
             // Now get the core editor catalog information
-            if (!TryGetEditorCatalog(composablePartCatalogList))
-            {
-                throw new Exception("Could not locate the editor components.  Is Visual Studio installed?");
-            }
+            AppendEditorCatalog(composablePartCatalogList);
 
             // Add in our custom undo export 
             exportProviderList.Add(new UndoExportProvider());
@@ -327,39 +324,32 @@ namespace EditorUtils
         }
 
         /// <summary>
-        /// Try and load the core editor catalog directly from the GAC.  
+        /// Load the list of editor assemblies into the specified catalog list.  This method will
+        /// throw on failure
         /// </summary>
-        private static bool TryGetEditorCatalog(List<ComposablePartCatalog> list)
+        private static void AppendEditorCatalog(List<ComposablePartCatalog> list)
         {
             string version;
             string installDirectory;
             if (!TryCalculateVersion(out version, out installDirectory))
             {
-                return false;
+                throw new Exception("Unable to calculate the version of Visual Studio installed on the machine");
             }
 
             if (!TryLoadInteropAssembly(installDirectory))
             {
-                return false;
+                var message = string.Format("Unable to load the interop assemblies.  Install directory is: ", installDirectory);
+                throw new Exception(message);
             }
 
-            try
+            // Load the core editor compontents from the GAC
+            string versionInfo = string.Format(", Version={0}, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL", version);
+            foreach (var name in EditorComponents)
             {
-                // Load the core editor compontents from the GAC
-                string versionInfo = string.Format(", Version={0}, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL", version);
-                foreach (var name in EditorComponents)
-                {
-                    var simpleName = name.Substring(0, name.Length - 4);
-                    var qualifiedName = simpleName + versionInfo;
-                    var assembly = Assembly.Load(qualifiedName);
-                    list.Add(new AssemblyCatalog(assembly));
-                }
-
-                return true;
-            }
-            catch
-            {
-                return false;
+                var simpleName = name.Substring(0, name.Length - 4);
+                var qualifiedName = simpleName + versionInfo;
+                var assembly = Assembly.Load(qualifiedName);
+                list.Add(new AssemblyCatalog(assembly));
             }
         }
 
