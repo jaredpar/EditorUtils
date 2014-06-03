@@ -79,6 +79,26 @@ namespace EditorUtils
                 "Microsoft.VisualStudio.Text.UI.Wpf.dll"
             };
 
+        /// <summary>
+        /// A list of key names for versions of Visual Studio which have the editor components 
+        /// necessary to create an EditorHost instance.  Listed in preference order
+        /// </summary>
+        private static readonly string[] VisualStudioSkuKeyNames =
+            new[]
+            {
+                // Standard non-express SKU of Visual Studio
+                "VisualStudio",
+
+                // Visual C# express
+                "VCSExpress",
+
+                // Visual C++ express
+                "VCExpress",
+
+                // Visual Basic Express
+                "VBExpress",
+            };
+
         [ThreadStatic]
         private static CompositionContainer _compositionContainerCache;
 
@@ -373,9 +393,27 @@ namespace EditorUtils
         /// </summary>
         private static bool TryGetInstallDirectory(string version, out string installDirectory)
         {
+            foreach (var skuKeyName in VisualStudioSkuKeyNames)
+            {
+                if (TryGetInstallDirectory(skuKeyName, version, out installDirectory))
+                {
+                    return true;
+                }
+            }
+
+            installDirectory = null;
+            return false;
+        }
+
+        /// <summary>
+        /// Try and get the installation directory for the specified SKU of Visual Studio.  This 
+        /// will fail if the specified version of Visual Studio isn't installed
+        /// </summary>
+        private static bool TryGetInstallDirectory(string skuKeyName, string version, out string installDirectory)
+        {
             try
             {
-                var subKeyPath = String.Format(@"Software\Microsoft\VisualStudio\{0}", version);
+                var subKeyPath = String.Format(@"Software\Microsoft\{0}\{1}", skuKeyName, version);
                 using (var key = Registry.LocalMachine.OpenSubKey(subKeyPath, writable: false))
                 {
                     installDirectory = key.GetValue("InstallDir", null) as string;
