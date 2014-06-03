@@ -6,6 +6,8 @@ branches:
 
 configuration: Debug
 
+platform: x86
+
 build:
   project: EditorUtils.sln
   verbosity: minimal
