@@ -11,5 +11,5 @@ build:
   verbosity: minimal
 
 test_script:
-      - Tools\xunit.console.clr4.x86.exe /silent Test\EditorUtilsTest\bin\Debug\EditorUtils.UnitTest.dll
+      - Tools\xunit.console.clr4.x86.exe Test\EditorUtilsTest\bin\Debug\EditorUtils.UnitTest.dll /silent
 
