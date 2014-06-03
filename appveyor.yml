@@ -10,6 +10,3 @@ build:
   project: EditorUtils.sln
   verbosity: minimal
 
-# Disable testing until the Visual Studio version problem
-# is understood
-test: off
