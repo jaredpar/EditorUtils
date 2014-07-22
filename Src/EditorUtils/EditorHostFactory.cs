@@ -205,10 +205,13 @@ namespace EditorUtils
                 var subKeyPath = String.Format(@"Software\Microsoft\{0}\{1}", skuKeyName, version);
                 using (var key = Registry.LocalMachine.OpenSubKey(subKeyPath, writable: false))
                 {
-                    installDirectory = key.GetValue("InstallDir", null) as string;
-                    if (!String.IsNullOrEmpty(installDirectory))
+                    if (key != null)
                     {
-                        return true;
+                        installDirectory = key.GetValue("InstallDir", null) as string;
+                        if (!String.IsNullOrEmpty(installDirectory))
+                        {
+                            return true;
+                        }
                     }
                 }
             }
