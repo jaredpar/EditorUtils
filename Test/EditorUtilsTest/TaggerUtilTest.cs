@@ -4,7 +4,7 @@ using Xunit;
 
 namespace EditorUtils.UnitTest
 {
-    public abstract class TaggerUtilTest : EditorHost
+    public abstract class TaggerUtilTest : EditorHostTest
     {
         public sealed class AdjustRequestSpanTest : TaggerUtilTest
         {

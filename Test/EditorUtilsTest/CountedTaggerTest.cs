@@ -7,7 +7,7 @@ using Xunit;
 
 namespace EditorUtils.UnitTest
 {
-    public sealed class CountedTaggerTest : EditorHost
+    public sealed class CountedTaggerTest : EditorHostTest
     {
         private readonly MockRepository _factory;
         private readonly object _key;

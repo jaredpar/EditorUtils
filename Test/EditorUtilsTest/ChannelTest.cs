@@ -5,7 +5,7 @@ using Xunit;
 
 namespace EditorUtils.UnitTest
 {
-    public abstract class ChannelTest : EditorHost
+    public abstract class ChannelTest : EditorHostTest
     {
         private readonly AsyncTagger<string, TextMarkerTag>.Channel _channel;
         private ITextBuffer _textBuffer;

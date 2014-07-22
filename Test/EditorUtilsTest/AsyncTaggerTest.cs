@@ -15,7 +15,7 @@ using AsyncTaggerType = EditorUtils.Implementation.Tagging.AsyncTagger<string, M
 
 namespace EditorUtils.UnitTest
 {
-    public abstract class AsyncTaggerTest : EditorHost, IDisposable
+    public abstract class AsyncTaggerTest : EditorHostTest, IDisposable
     {
         #region TestableAsyncTaggerSource
 
@@ -204,7 +204,7 @@ namespace EditorUtils.UnitTest
 
         protected void Create(params string[] lines)
         {
-            _textBuffer = CreateTextBuffer(lines);
+            _textBuffer = EditorHost.CreateTextBuffer(lines);
 
             // Setup a sychronization context we can control
             _synchronizationContext = new TestableSynchronizationContext();

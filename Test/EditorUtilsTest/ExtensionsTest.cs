@@ -6,7 +6,7 @@ using Xunit;
 
 namespace EditorUtils.UnitTest
 {
-    public sealed class ExtensionsTest : EditorHost
+    public sealed class ExtensionsTest : EditorHostTest
     {
         [Fact]
         public void GetSourceBuffersRecursive_Simple()

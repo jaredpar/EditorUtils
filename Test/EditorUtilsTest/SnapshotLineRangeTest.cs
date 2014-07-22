@@ -4,13 +4,13 @@ using Xunit;
 
 namespace EditorUtils.UnitTest
 {
-    public abstract class SnapshotLineRangeTest : EditorHost
+    public abstract class SnapshotLineRangeTest : EditorHostTest
     {
         private ITextBuffer _textBuffer;
 
         public void Create(params string[] lines)
         {
-            _textBuffer = CreateTextBuffer(lines);
+            _textBuffer = EditorHost.CreateTextBuffer(lines);
         }
 
         public sealed class CreateTest : SnapshotLineRangeTest

@@ -9,7 +9,7 @@ using Xunit;
 
 namespace EditorUtils.UnitTest
 {
-    public abstract class BasicTaggerTest : EditorHost
+    public abstract class BasicTaggerTest : EditorHostTest
     {
         #region TestableBasicTaggerSource 
 

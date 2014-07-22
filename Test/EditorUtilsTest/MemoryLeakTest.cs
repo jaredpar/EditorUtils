@@ -9,7 +9,7 @@ namespace EditorUtils.UnitTest
     /// <summary>
     /// Used for detecting leaks in our components
     /// </summary>
-    public sealed class MemoryLeakTest : EditorHost
+    public sealed class MemoryLeakTest : EditorHostTest
     {
         private void RunGarbageCollector()
         {

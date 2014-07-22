@@ -69,6 +69,7 @@
     <Compile Include="BasicUndoHistoryTest.cs" />
     <Compile Include="ChannelTest.cs" />
     <Compile Include="CountedTaggerTest.cs" />
+    <Compile Include="EditorHostTest.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="EqualityUtil.cs" />
     <Compile Include="ExtensionsTest.cs" />

@@ -17,7 +17,7 @@ namespace EditorUtils.UnitTest
     /// ITagger (async or not).  The intent is to have many variations of the taggers defined 
     /// here and put them through the same guantlet 
     /// </summary>
-    public abstract class TaggerCommonTest : EditorHost
+    public abstract class TaggerCommonTest : EditorHostTest
     {
         #region AsyncTaggerCommonTest 
 
