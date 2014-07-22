@@ -22,7 +22,7 @@ namespace EditorUtils
     /// testing. Any test base can derive from this and use the Create* methods to get
     /// ITextBuffer instances to run their tests against. 
     /// </summary>
-    public sealed class EditorHost
+    public class EditorHost
     {
         private CompositionContainer _compositionContainer;
         private ITextBufferFactoryService _textBufferFactoryService;
