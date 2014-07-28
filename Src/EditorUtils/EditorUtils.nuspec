@@ -17,8 +17,4 @@
     <copyright>Copyright 2012</copyright>
     <tags>VisualStudio</tags>
   </metadata>
-  <files>
-    <file src="Tools\*ps1" target="tools" /> 
-    <file src="Tools\*psm1" target="tools" /> 
-  </files>
 </package>
