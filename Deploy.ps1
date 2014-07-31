@@ -80,31 +80,37 @@ function get-version() {
 
 # Do the NuGet work
 function invoke-nuget() {
-    param ([string]$version = $(throw "Need a version number"))
+    param (
+        [string]$version = $(throw "Need a version number"),
+        [string]$suffix = $(throw "Need a file name suffix"))
 
-    write-host "NuGet Package"
-    $docPath = [Environment]::GetFolderPath("MyDocuments")
-    $target = Join-Path $docPath "NugetPackages"
-    if (-not (Test-Path $target)) {
-        mkdir $target | out-null
-    }
+    write-host "`tCreating NuGet Package"
 
-    write-host "`tPacking to $docPath"
+    $scratchPath = "Deploy\Scratch"
+    $libPath = join-path $scratchPath "lib\net40"
+    rm -re -fo $scratchPath | out-null
+    mkdir $libPath | out-null
 
-    & $nuget pack Src\EditorUtils\EditorUtils.csproj -Symbols -OutputDirectory $target -Prop Configuration=Release | %{ write-host "`t`t$_" }
+    copy Src\EditorUtils\bin\Release\EditorUtils.dll (join-path $libPath "EditorUtils$($suffix).dll")
+    copy Src\EditorUtils\bin\Release\EditorUtils.pdb (join-path $libPath "EditorUtils$($suffix).pdb")
+
+    $nuspecFilePath = join-path "Data" "EditorUtils$($suffix).nuspec"
+    & $nuget pack $nuspecFilePath -Symbols -Version $version -BasePath $scratchPath -OutputDirectory "Deploy" | out-null
     check-return
 
-    if ($script:push) { 
-        write-host "`tPushing Package"
-        $name = "EditorUtils.{0}.nupkg" -f $version
-        $packageFile = join-path $target $name
-        & $nuget push $packageFile  | %{ write-host "`t`t$_" }
-        check-return
-    }
+    #if ($script:push) { 
+    #    write-host "`tPushing Package"
+    #    $name = "EditorUtils.{0}.nupkg" -f $version
+    #    $packageFile = join-path $target $name
+    #    & $nuget push $packageFile  | %{ write-host "`t`t$_" }
+    #    check-return
+    #}
 }
 
 function deploy-version() { 
-    param ([string]$editorVersion = $(throw "Need a version number"))
+    param (
+        [string]$editorVersion = $(throw "Need a version number"),
+        [string]$suffix = $(throw "Need a file suffix"))
 
     write-host "Deploying $editorVersion"
 
@@ -126,9 +132,7 @@ function deploy-version() {
     test-unittests
 
     # Now do the NuGet work 
-    if ($editorVersion -eq 'Vs2010') {
-        invoke-nuget $version
-    }
+    invoke-nuget $version $suffix
 }
 
 $msbuild = join-path ${env:SystemRoot} "microsoft.net\framework\v4.0.30319\msbuild.exe"
@@ -151,12 +155,12 @@ if (-not (test-path $nuget)) {
 }
 
 if ($fast) {
-    deploy-version "Vs2010"
+    deploy-version "Vs2010" ""
 }
 else { 
-    deploy-version "Vs2010"
-    deploy-version "Vs2012"
-    deploy-version "Vs2013"
+    deploy-version "Vs2010" ""
+    deploy-version "Vs2012" "2012"
+    deploy-version "Vs2013" "2013"
 }
 
 rm env:\SolutionDir

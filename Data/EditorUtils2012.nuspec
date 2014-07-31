@@ -1,20 +1,16 @@
 <?xml version="1.0"?>
 <package >
   <metadata>
-    <id>$id$</id>
+    <id>EditorUtils2012</id>
     <version>$version$</version>
-    <title>$title$</title>
+    <title>EditorUtils 2012</title>
     <authors>JaredPar</authors>
     <owners>JaredPar</owners>
     <licenseUrl>http://www.apache.org/licenses/LICENSE-2.0</licenseUrl>
-    <!--
-    <projectUrl>http://PROJECT_URL_HERE_OR_DELETE_THIS_LINE</projectUrl>
-    <iconUrl>http://ICON_URL_HERE_OR_DELETE_THIS_LINE</iconUrl>
-    -->
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>Utility DLL for writing Visual Studio extensions</description>
+    <description>Utility DLL for writing Visual Studio extensions (2012 and above)</description>
     <releaseNotes>Initial Release</releaseNotes>
     <copyright>Copyright 2012</copyright>
-    <tags>VisualStudio</tags>
+    <tags>VisualStudio; VSIX</tags>
   </metadata>
 </package>
