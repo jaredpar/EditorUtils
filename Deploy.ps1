@@ -5,6 +5,15 @@ pushd $scriptPath
 
 function test-return() {
     if ($LASTEXITCODE -ne 0) {
+        return $false
+    }
+    else { 
+        return $true
+    }
+}
+
+function check-return() {
+    if (-not (test-return)) { 
         write-error "Command failed with code $LASTEXITCODE"
     }
 }
@@ -14,32 +23,36 @@ function build-clean() {
     $name = split-path -leaf $fileName
     write-host "`t$name"
     & $msbuild /nologo /verbosity:m /t:Clean /p:Configuration=Release /p:VisualStudioVersion=10.0 $fileName
-    test-return
+    check-return
     & $msbuild /nologo /verbosity:m /t:Clean /p:Configuration=Debug /p:VisualStudioVersion=10.0 $fileName
-    test-return
+    check-return
 }
 
 function build-release() {
-    param ([string]$fileName = $(throw "Need a project file name"))
+    param (
+        [string]$fileName = $(throw "Need a project file name"),
+        [string]$editorVersion = $(throw "Need an editor version"))
+
     $name = split-path -leaf $fileName
     write-host "`t$name"
-    & $msbuild /nologo /verbosity:q /p:Configuration=Release /p:VisualStudioVersion=10.0 $fileName
-    test-return
+    & $msbuild /nologo /verbosity:q /p:Configuration=Release /p:VisualStudioVersion=10.0 /p:EditorVersion=$editorVersion $fileName
+    check-return
 }
 
 # Run all of the unit tests
 function test-unittests() { 
     $all = "Test\EditorUtilsTest\bin\Release\EditorUtils.UnitTest.dll"
     $xunit = join-path $scriptPath "Tools\xunit.console.clr4.x86.exe"
+    $resultFilePath = "Deploy\xunit.xml"
 
     write-host "Running Unit Tests"
     foreach ($file in $all) { 
         $name = split-path -leaf $file
         write-host -NoNewLine ("`t{0}: " -f $name)
-        $output = & $xunit $file /silent
-        test-return
-        $last = $output[$output.Count - 1] 
-        write-host $last
+        & $xunit $file /xml $resultFilePath
+        if (-not (test-return)) { 
+            write-host (gc $resultFilePath)
+        }
     }
 }
 
@@ -65,7 +78,6 @@ function get-version() {
     return $version
 }
 
-
 # Do the NuGet work
 function invoke-nuget() {
     param ([string]$version = $(throw "Need a version number"))
@@ -80,14 +92,35 @@ function invoke-nuget() {
     write-host "`tPacking to $docPath"
 
     & $nuget pack Src\EditorUtils\EditorUtils.csproj -Symbols -OutputDirectory $target -Prop Configuration=Release | %{ write-host "`t`t$_" }
-    test-return
+    check-return
 
     if ($script:push) { 
         write-host "`tPushing Package"
         $name = "EditorUtils.{0}.nupkg" -f $version
         $packageFile = join-path $target $name
         & $nuget push $packageFile  | %{ write-host "`t`t$_" }
-        test-return
+        check-return
+    }
+}
+
+function deploy-version() { 
+    param ([string]$editorVersion = $(throw "Need a version number"))
+
+    # Build all of the relevant projects.  Both the deployment binaries and the 
+    # test infrastructure
+    write-host "Building Projects $editorVersion"
+    build-release Src\EditorUtils\EditorUtils.csproj $editorVersion
+    build-release Test\EditorUtilsTest\EditorUtilsTest.csproj $editorVersion
+
+    write-host "`tDetermining Version Number"
+    $version = get-version
+
+    # Next run the tests
+    test-unittests
+
+    # Now do the NuGet work 
+    if ($editorVersion -eq 'Vs2010') {
+        invoke-nuget $version
     }
 }
 
@@ -101,6 +134,10 @@ if (-not (test-path $msbuild)) {
 # environment variable for build
 ${env:SolutionDir} = $scriptPath
 
+if (-not (test-path "Deploy")) {
+    mkdir Deploy | out-null
+}
+
 $nuget = resolve-path ".nuget\NuGet.exe"
 if (-not (test-path $nuget)) { 
     write-error "Can't find NuGet.exe"
@@ -113,20 +150,8 @@ if (-not $fast) {
     build-clean Test\EditorUtilsTest\EditorUtilsTest.csproj
 }
 
-# Build all of the relevant projects.  Both the deployment binaries and the 
-# test infrastructure
-write-host "Building Projects"
-build-release Src\EditorUtils\EditorUtils.csproj
-build-release Test\EditorUtilsTest\EditorUtilsTest.csproj
-
-write-host "`tDetermining Version Number"
-$version = get-version
-
-# Next run the tests
-test-unittests
-
-# Now do the NuGet work 
-invoke-nuget $version
+# deploy-version "Vs2010"
+deploy-version "Vs2012"
 
 rm env:\SolutionDir
 

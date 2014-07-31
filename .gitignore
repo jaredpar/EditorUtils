@@ -47,6 +47,7 @@ bin/
 TestResults/
 Debug/
 Release/
+Deploy/
 Samples/HighlightCommentKinds/bin
 Samples/HighlightCommentKinds/obj
 
