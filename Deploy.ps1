@@ -21,7 +21,6 @@ function check-return() {
 function build-clean() {
     param ([string]$fileName = $(throw "Need a project file name"))
     $name = split-path -leaf $fileName
-    write-host "`t$name"
     & $msbuild /nologo /verbosity:m /t:Clean /p:Configuration=Release /p:VisualStudioVersion=10.0 $fileName
     check-return
     & $msbuild /nologo /verbosity:m /t:Clean /p:Configuration=Debug /p:VisualStudioVersion=10.0 $fileName
@@ -34,7 +33,6 @@ function build-release() {
         [string]$editorVersion = $(throw "Need an editor version"))
 
     $name = split-path -leaf $fileName
-    write-host "`t$name"
     & $msbuild /nologo /verbosity:q /p:Configuration=Release /p:VisualStudioVersion=10.0 /p:EditorVersion=$editorVersion $fileName
     check-return
 }
@@ -45,20 +43,22 @@ function test-unittests() {
     $xunit = join-path $scriptPath "Tools\xunit.console.clr4.x86.exe"
     $resultFilePath = "Deploy\xunit.xml"
 
-    write-host "Running Unit Tests"
+    write-host -NoNewLine "`tRunning Unit Tests: "
     foreach ($file in $all) { 
         $name = split-path -leaf $file
-        write-host -NoNewLine ("`t{0}: " -f $name)
-        & $xunit $file /xml $resultFilePath
+        & $xunit $file /silent /xml $resultFilePath | out-null
         if (-not (test-return)) { 
+            write-host "FAILED!!!"
             write-host (gc $resultFilePath)
+        }
+        else { 
+            write-host "passed"
         }
     }
 }
 
 # Get the version number of the package that we are deploying 
 function get-version() { 
-    write-host "Testing Version Numbers"
     $version = $null;
     foreach ($line in gc "Src\EditorUtils\Constants.cs") {
         if ($line -match 'AssemblyVersion = "([\d.]*)"') {
@@ -106,9 +106,16 @@ function invoke-nuget() {
 function deploy-version() { 
     param ([string]$editorVersion = $(throw "Need a version number"))
 
+    write-host "Deploying $editorVersion"
+
+    # First clean the projects
+    write-host "`tCleaning Projects"
+    build-clean Src\EditorUtils\EditorUtils.csproj
+    build-clean Test\EditorUtilsTest\EditorUtilsTest.csproj
+
     # Build all of the relevant projects.  Both the deployment binaries and the 
     # test infrastructure
-    write-host "Building Projects $editorVersion"
+    write-host "`tBuilding Projects"
     build-release Src\EditorUtils\EditorUtils.csproj $editorVersion
     build-release Test\EditorUtilsTest\EditorUtilsTest.csproj $editorVersion
 
@@ -143,15 +150,14 @@ if (-not (test-path $nuget)) {
     write-error "Can't find NuGet.exe"
 }
 
-# First step is to clean out all of the projects 
-if (-not $fast) { 
-    write-host "Cleaning Projects"
-    build-clean Src\EditorUtils\EditorUtils.csproj
-    build-clean Test\EditorUtilsTest\EditorUtilsTest.csproj
+if ($fast) {
+    deploy-version "Vs2010"
 }
-
-# deploy-version "Vs2010"
-deploy-version "Vs2012"
+else { 
+    deploy-version "Vs2010"
+    deploy-version "Vs2012"
+    deploy-version "Vs2013"
+}
 
 rm env:\SolutionDir
 
