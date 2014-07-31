@@ -88,23 +88,26 @@ function invoke-nuget() {
 
     $scratchPath = "Deploy\Scratch"
     $libPath = join-path $scratchPath "lib\net40"
-    rm -re -fo $scratchPath | out-null
+    $outputPath = "Deploy"
+    if (test-path $scratchPath) { 
+        rm -re -fo $scratchPath | out-null
+    }
     mkdir $libPath | out-null
 
     copy Src\EditorUtils\bin\Release\EditorUtils.dll (join-path $libPath "EditorUtils$($suffix).dll")
     copy Src\EditorUtils\bin\Release\EditorUtils.pdb (join-path $libPath "EditorUtils$($suffix).pdb")
 
     $nuspecFilePath = join-path "Data" "EditorUtils$($suffix).nuspec"
-    & $nuget pack $nuspecFilePath -Symbols -Version $version -BasePath $scratchPath -OutputDirectory "Deploy" | out-null
+    & $nuget pack $nuspecFilePath -Symbols -Version $version -BasePath $scratchPath -OutputDirectory $outputPath | out-null
     check-return
 
-    #if ($script:push) { 
-    #    write-host "`tPushing Package"
-    #    $name = "EditorUtils.{0}.nupkg" -f $version
-    #    $packageFile = join-path $target $name
-    #    & $nuget push $packageFile  | %{ write-host "`t`t$_" }
-    #    check-return
-    #}
+    if ($script:push) { 
+        write-host "`tPushing Package"
+        $name = "EditorUtils$($suffix).$version.nupkg"
+        $packageFile = join-path $outputPath $name
+        & $nuget push $packageFile  | %{ write-host "`t`t$_" }
+        check-return
+    }
 }
 
 function deploy-version() { 
