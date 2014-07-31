@@ -13,9 +13,25 @@
     <EditorUtilsAppConfig>$(MSBuildThisFileDirectory)References\Vs2013\App.config</EditorUtilsAppConfig>
   </PropertyGroup>
 
-  <!-- Most projects build against the 2010 reference assemblies so make sure to include that in the path -->
-  <PropertyGroup>
+  <PropertyGroup Condition=" '$(EditorVersion)' == '' Or '$(EditorVersion)' == 'Vs2010' ">
     <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2010</ReferencePath>
+    <EditorAssemblyVersion>10.0.0.0</EditorAssemblyVersion>
+    <EditorFrameworkVersion>4.0</EditorFrameworkVersion>
+    <DefineConstants>$(DefineConstants);VS2010</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2012'">
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2012</ReferencePath>
+    <EditorAssemblyVersion>11.0.0.0</EditorAssemblyVersion>
+    <EditorFrameworkVersion>4.5</EditorFrameworkVersion>
+    <DefineConstants>$(DefineConstants);VS2012</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2013'">
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2013</ReferencePath>
+    <EditorAssemblyVersion>12.0.0.0</EditorAssemblyVersion>
+    <EditorFrameworkVersion>4.5</EditorFrameworkVersion>
+    <DefineConstants>$(DefineConstants);VS2013</DefineConstants>
   </PropertyGroup>
 
   <!-- AppVeyor specific settings -->

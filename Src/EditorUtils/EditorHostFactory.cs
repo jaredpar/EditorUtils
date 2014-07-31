@@ -49,6 +49,19 @@ namespace EditorUtils
 
         #endregion
 
+        // Determine the minimum Visual Studio number that we should be probing for.  It is okay to 
+        // find later versions because Visual Studio is back compat.  Using an earlier version does
+        // not work though 
+#if VS2010 
+        private const int MinVisualStudioVersion = 10;
+#elif VS2012 
+        private const int MinVisualStudioVersion = 11;
+#elif VS2013 
+        private const int MinVisualStudioVersion = 12;
+#else
+        private const int MinVisualStudioVersion = 10;
+#endif
+
         private static readonly string[] EditorComponents =
             new[]
             {
@@ -135,6 +148,8 @@ namespace EditorUtils
                 throw new Exception("Unable to calculate the version of Visual Studio installed on the machine");
             }
 
+            Console.WriteLine("Version = {0}", version);
+            Console.WriteLine("Install Directory = {0}", installDirectory);
             if (!TryLoadInteropAssembly(installDirectory))
             {
                 var message = string.Format("Unable to load the interop assemblies.  Install directory is: ", installDirectory);
@@ -161,7 +176,7 @@ namespace EditorUtils
             // The same pattern exists for all known versions of Visual Studio.  The editor was 
             // introduced in version 10 (VS2010).  The max of 20 is arbitrary and just meant to 
             // future proof this algorithm for some time into the future
-            for (int i = 10; i < 20; i++)
+            for (int i = MinVisualStudioVersion; i < 20; i++)
             {
                 var shortVersion = String.Format("{0}.0", i);
                 if (TryGetInstallDirectory(shortVersion, out installDirectory))
