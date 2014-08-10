@@ -70,8 +70,8 @@
     <Compile Include="Implementation\Tagging\BasicClassifier.cs" />
     <Compile Include="Implementation\Tagging\BasicProducer.cs" />
     <Compile Include="Implementation\Utilities\AdhocOutliner.cs" />
-    <Compile Include="Implementation\Tagging\AsyncTagger.cs" />
-    <Compile Include="Implementation\Tagging\AsyncTagger.Channel.cs" />
+    <Compile Include="Implementation\Tagging\AsyncProducer.cs" />
+    <Compile Include="Implementation\Tagging\AsyncProducer.Channel.cs" />
     <Compile Include="Implementation\Tagging\BasicTagger.cs" />
     <Compile Include="Implementation\Tagging\CountedTagger.cs" />
     <Compile Include="Implementation\Tagging\TaggerUtil.cs" />
