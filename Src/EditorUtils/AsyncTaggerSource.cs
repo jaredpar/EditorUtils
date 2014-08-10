@@ -8,7 +8,7 @@ using Microsoft.VisualStudio.Text.Tagging;
 
 namespace EditorUtils
 {
-    public abstract class AsyncTaggerSource<TData, TTag> : IAsyncTaggerSource<TData, TTag>
+    public abstract class AsyncTaggerSource<TData, TTag> : IAsyncTaggerSource<TData, ITagSpan<TTag>>
         where TTag : ITag
     {
         private readonly ITextView _textViewOptional;
@@ -63,39 +63,49 @@ namespace EditorUtils
         /// </summary>
         protected abstract ReadOnlyCollection<ITagSpan<TTag>> GetTagsInBackground(TData data, SnapshotSpan span, CancellationToken cancellationToken);
 
-        #region IAsyncTaggerSource<TData, TTag>
+        #region IAsyncTaggerSource<TData, ITagSpan<TTag>>
 
-        int? IAsyncTaggerSource<TData, TTag>.Delay
+        int? IAsyncTaggerSource<TData, ITagSpan<TTag>>.Delay
         {
             get { return Constants.DefaultAsyncDelay; }
         }
 
-        ITextSnapshot IAsyncTaggerSource<TData, TTag>.TextSnapshot
+        ITextSnapshot IAsyncTaggerSource<TData, ITagSpan<TTag>>.TextSnapshot
         {
             get { return TextBuffer.CurrentSnapshot; }
         }
 
-        ITextView IAsyncTaggerSource<TData, TTag>.TextViewOptional
+        ITextView IAsyncTaggerSource<TData, ITagSpan<TTag>>.TextViewOptional
         {
             get { return TextViewOptional; }
         }
 
-        TData IAsyncTaggerSource<TData, TTag>.GetDataForSnapshot(ITextSnapshot snapshot)
+        TData IAsyncTaggerSource<TData, ITagSpan<TTag>>.GetDataForSnapshot(ITextSnapshot snapshot)
         {
             return GetDataForSnapshot(snapshot);
         }
 
-        ReadOnlyCollection<ITagSpan<TTag>> IAsyncTaggerSource<TData, TTag>.GetTagsInBackground(TData data, SnapshotSpan span, CancellationToken cancellationToken)
+        ReadOnlyCollection<ITagSpan<TTag>> IAsyncTaggerSource<TData, ITagSpan<TTag>>.GetTagsInBackground(TData data, SnapshotSpan span, CancellationToken cancellationToken)
         {
             return GetTagsInBackground(data, span, cancellationToken);
         }
 
-        bool IAsyncTaggerSource<TData, TTag>.TryGetTagsPrompt(SnapshotSpan span, out IEnumerable<ITagSpan<TTag>> tags)
+        bool IAsyncTaggerSource<TData, ITagSpan<TTag>>.TryGetTagsPrompt(SnapshotSpan span, out IEnumerable<ITagSpan<TTag>> tags)
         {
             return TryGetTagsPrompt(span, out tags);
         }
 
-        event EventHandler IAsyncTaggerSource<TData, TTag>.Changed
+        SnapshotSpan IAsyncTaggerSource<TData, ITagSpan<TTag>>.GetSpan(ITagSpan<TTag> tagSpan)
+        {
+            return tagSpan.Span;
+        }
+
+        ITagSpan<TTag> IAsyncTaggerSource<TData, ITagSpan<TTag>>.CreateTagSpan(ITagSpan<TTag> oldTagSpan, SnapshotSpan span)
+        {
+            return new TagSpan<TTag>(span, oldTagSpan.Tag);
+        }
+
+        event EventHandler IAsyncTaggerSource<TData, ITagSpan<TTag>>.Changed
         {
             add { _changedEvent += value; }
             remove { _changedEvent -= value; }

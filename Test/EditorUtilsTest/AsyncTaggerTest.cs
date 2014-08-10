@@ -19,7 +19,7 @@ namespace EditorUtils.UnitTest
     {
         #region TestableAsyncTaggerSource
 
-        protected sealed class TestableAsyncTaggerSource : IAsyncTaggerSource<string, TextMarkerTag>, IDisposable
+        protected sealed class TestableAsyncTaggerSource : IAsyncTaggerSource<string, ITagSpan<TextMarkerTag>>, IDisposable
         {
             private readonly ITextBuffer _textBuffer;
             private readonly int _threadId;
@@ -92,23 +92,23 @@ namespace EditorUtils.UnitTest
 
             #region IAsyncTaggerSource
 
-            int? IAsyncTaggerSource<string, TextMarkerTag>.Delay
+            int? IAsyncTaggerSource<string, ITagSpan<TextMarkerTag>>.Delay
             {
                 get { return Delay; }
             }
 
-            ITextView IAsyncTaggerSource<string, TextMarkerTag>.TextViewOptional
+            ITextView IAsyncTaggerSource<string, ITagSpan<TextMarkerTag>>.TextViewOptional
             {
                 get { return TextView; }
             }
 
-            string IAsyncTaggerSource<string, TextMarkerTag>.GetDataForSnapshot(ITextSnapshot snapshot)
+            string IAsyncTaggerSource<string, ITagSpan<TextMarkerTag>>.GetDataForSnapshot(ITextSnapshot snapshot)
             {
                 Assert.True(InMainThread);
                 return DataForSnapshot;
             }
 
-            ReadOnlyCollection<ITagSpan<TextMarkerTag>> IAsyncTaggerSource<string, TextMarkerTag>.GetTagsInBackground(string value, SnapshotSpan span, CancellationToken cancellationToken)
+            ReadOnlyCollection<ITagSpan<TextMarkerTag>> IAsyncTaggerSource<string, ITagSpan<TextMarkerTag>>.GetTagsInBackground(string value, SnapshotSpan span, CancellationToken cancellationToken)
             {
                 Assert.False(InMainThread);
 
@@ -132,7 +132,7 @@ namespace EditorUtils.UnitTest
                 throw new Exception("Couldn't get background tags");
             }
 
-            bool IAsyncTaggerSource<string, TextMarkerTag>.TryGetTagsPrompt(SnapshotSpan span, out IEnumerable<ITagSpan<TextMarkerTag>> tagList)
+            bool IAsyncTaggerSource<string, ITagSpan<TextMarkerTag>>.TryGetTagsPrompt(SnapshotSpan span, out IEnumerable<ITagSpan<TextMarkerTag>> tagList)
             {
                 Assert.True(InMainThread);
                 if (_promptTags != null)
@@ -145,13 +145,13 @@ namespace EditorUtils.UnitTest
                 return false;
             }
 
-            event EventHandler IAsyncTaggerSource<string, TextMarkerTag>.Changed
+            event EventHandler IAsyncTaggerSource<string, ITagSpan<TextMarkerTag>>.Changed
             {
                 add { _changed += value; }
                 remove { _changed -= value; }
             }
 
-            ITextSnapshot IAsyncTaggerSource<string, TextMarkerTag>.TextSnapshot
+            ITextSnapshot IAsyncTaggerSource<string, ITagSpan<TextMarkerTag>>.TextSnapshot
             {
                 get
                 {
@@ -164,6 +164,16 @@ namespace EditorUtils.UnitTest
             {
                 Assert.True(InMainThread);
                 IsDisposed = true;
+            }
+
+            SnapshotSpan IAsyncTaggerSource<string, ITagSpan<TextMarkerTag>>.GetSpan(ITagSpan<TextMarkerTag> tagSpan)
+            {
+                return tagSpan.Span;
+            }
+
+            ITagSpan<TextMarkerTag> IAsyncTaggerSource<string, ITagSpan<TextMarkerTag>>.CreateTagSpan(ITagSpan<TextMarkerTag> oldTagSpan, SnapshotSpan span)
+            {
+                return new TagSpan<TextMarkerTag>(span, oldTagSpan.Tag);
             }
 
             #endregion
@@ -238,7 +248,9 @@ namespace EditorUtils.UnitTest
             var trackingSpan = snapshot.CreateTrackingSpan(source, SpanTrackingMode.EdgeInclusive);
             var tag = new TextMarkerTag("my tag");
             var all = tagSpans
-                .Select(span => Tuple.Create(snapshot.CreateTrackingSpan(span, SpanTrackingMode.EdgeInclusive), tag))
+                .Select(span => Tuple.Create(
+                    snapshot.CreateTrackingSpan(span, SpanTrackingMode.EdgeInclusive), 
+                    (ITagSpan<TextMarkerTag>)(new TagSpan<TextMarkerTag>(span, tag))))
                 .ToReadOnlyCollection();
             return new AsyncTaggerType.TrackingCacheData(
                 trackingSpan,

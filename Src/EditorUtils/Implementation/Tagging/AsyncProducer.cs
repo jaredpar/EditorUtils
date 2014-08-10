@@ -10,8 +10,7 @@ using Microsoft.VisualStudio.Text.Tagging;
 
 namespace EditorUtils.Implementation.Tagging
 {
-    internal sealed partial class AsyncTagger<TData, TTag> : ITagger<TTag>, IDisposable
-        where TTag : ITag
+    internal abstract partial class AsyncProducer<TData, TTagSpan> : IDisposable
     {
         #region CompleteReason
 
@@ -44,7 +43,7 @@ namespace EditorUtils.Implementation.Tagging
             /// <summary>
             /// Set of known tags
             /// </summary>
-            internal readonly ReadOnlyCollection<ITagSpan<TTag>> TagList;
+            internal readonly ReadOnlyCollection<TTagSpan> TagList;
 
             internal SnapshotSpan Span
             {
@@ -61,7 +60,7 @@ namespace EditorUtils.Implementation.Tagging
                 }
             }
 
-            internal BackgroundCacheData(SnapshotLineRange lineRange, ReadOnlyCollection<ITagSpan<TTag>> tagList)
+            internal BackgroundCacheData(SnapshotLineRange lineRange, ReadOnlyCollection<TTagSpan> tagList)
             {
                 Snapshot = lineRange.Snapshot;
                 VisitedCollection = new NormalizedLineRangeCollection();
@@ -69,7 +68,7 @@ namespace EditorUtils.Implementation.Tagging
                 TagList = tagList;
             }
 
-            internal BackgroundCacheData(ITextSnapshot snapshot, NormalizedLineRangeCollection visitedCollection, ReadOnlyCollection<ITagSpan<TTag>> tagList)
+            internal BackgroundCacheData(ITextSnapshot snapshot, NormalizedLineRangeCollection visitedCollection, ReadOnlyCollection<TTagSpan> tagList)
             {
                 Snapshot = snapshot;
                 VisitedCollection = visitedCollection;
@@ -100,15 +99,16 @@ namespace EditorUtils.Implementation.Tagging
             /// <summary>
             /// Create a TrackingCacheData instance from this BackgroundCacheData
             /// </summary>
-            internal TrackingCacheData CreateTrackingCacheData()
+            internal TrackingCacheData CreateTrackingCacheData(IAsyncTaggerSource<TData, TTagSpan> asyncTaggerSource)
             {
                 // Create the list.  Initiate an ITrackingSpan for every SnapshotSpan present
                 var trackingList = TagList.Select(
                     tagSpan =>
                     {
-                        var snapshot = tagSpan.Span.Snapshot;
-                        var trackingSpan = snapshot.CreateTrackingSpan(tagSpan.Span, SpanTrackingMode.EdgeExclusive);
-                        return Tuple.Create(trackingSpan, tagSpan.Tag);
+                        var span = asyncTaggerSource.GetSpan(tagSpan);
+                        var snapshot = span.Snapshot;
+                        var trackingSpan = snapshot.CreateTrackingSpan(span, SpanTrackingMode.EdgeExclusive);
+                        return Tuple.Create(trackingSpan, tagSpan);
                     })
                     .ToReadOnlyCollection();
 
@@ -125,9 +125,9 @@ namespace EditorUtils.Implementation.Tagging
         internal struct TrackingCacheData
         {
             internal readonly ITrackingSpan TrackingSpan;
-            internal readonly ReadOnlyCollection<Tuple<ITrackingSpan, TTag>> TrackingList;
+            internal readonly ReadOnlyCollection<Tuple<ITrackingSpan, TTagSpan>> TrackingList;
 
-            internal TrackingCacheData(ITrackingSpan trackingSpan, ReadOnlyCollection<Tuple<ITrackingSpan, TTag>> trackingList)
+            internal TrackingCacheData(ITrackingSpan trackingSpan, ReadOnlyCollection<Tuple<ITrackingSpan, TTagSpan>> trackingList)
             {
                 TrackingSpan = trackingSpan;
                 TrackingList = trackingList;
@@ -158,7 +158,7 @@ namespace EditorUtils.Implementation.Tagging
 
                 var tagList = TrackingList
                     .Concat(trackingCacheData.TrackingList)
-                    .Distinct(EqualityUtility.Create<Tuple<ITrackingSpan, TTag>>(
+                    .Distinct(EqualityUtility.Create<Tuple<ITrackingSpan, TTagSpan>>(
                         (x, y) => x.Item1.GetSpanSafe(snapshot) == y.Item1.GetSpanSafe(snapshot),
                         tuple => tuple.Item1.GetSpanSafe(snapshot).GetHashCode()))
                     .ToReadOnlyCollection();
@@ -188,22 +188,22 @@ namespace EditorUtils.Implementation.Tagging
             /// it succeeds then we use the mapped values and simultaneously kick off a background
             /// request for the correct ones
             /// </summary>
-            internal ReadOnlyCollection<ITagSpan<TTag>> GetCachedTags(ITextSnapshot snapshot)
+            internal ReadOnlyCollection<TTagSpan> GetCachedTags(IAsyncTaggerSource<TData, TTagSpan> asyncTaggerSource, ITextSnapshot snapshot)
             {
                 // Mapping gave us at least partial information.  Will work for the transition
                 // period
-                return
-                    TrackingList
-                    .Select(
-                        tuple =>
-                        {
-                            var itemSpan = tuple.Item1.GetSpanSafe(snapshot);
-                            return itemSpan.HasValue
-                                ? (ITagSpan<TTag>)new TagSpan<TTag>(itemSpan.Value, tuple.Item2)
-                                : null;
-                        })
-                    .Where(tagSpan => tagSpan != null)
-                    .ToReadOnlyCollection();
+                var list = new List<TTagSpan>();
+                foreach (var tuple in TrackingList)
+                {
+                    var itemSpan = tuple.Item1.GetSpanSafe(snapshot);
+                    if (itemSpan.HasValue)
+                    {
+                        var tagSpan = asyncTaggerSource.CreateTagSpan(tuple.Item2, itemSpan.Value);
+                        list.Add(tagSpan);
+                    }
+                }
+
+                return list.ToReadOnlyCollectionShallow();
             }
         }
 
@@ -283,10 +283,9 @@ namespace EditorUtils.Implementation.Tagging
         /// <summary>
         /// Cached empty tag list
         /// </summary>
-        private static readonly ReadOnlyCollection<ITagSpan<TTag>> EmptyTagList = new ReadOnlyCollection<ITagSpan<TTag>>(new List<ITagSpan<TTag>>());
+        private static readonly ReadOnlyCollection<TTagSpan> EmptyTagList = new ReadOnlyCollection<TTagSpan>(new List<TTagSpan>());
 
-        private readonly IAsyncTaggerSource<TData, TTag> _asyncTaggerSource;
-        private event EventHandler<SnapshotSpanEventArgs> _tagsChanged;
+        private readonly IAsyncTaggerSource<TData, TTagSpan> _asyncTaggerSource;
 
         /// <summary>
         /// The one and only active AsyncBackgroundRequest instance.  There can be several
@@ -345,7 +344,7 @@ namespace EditorUtils.Implementation.Tagging
             set { _chunkCount = value; }
         }
 
-        internal AsyncTagger(IAsyncTaggerSource<TData, TTag> asyncTaggerSource)
+        internal AsyncProducer(IAsyncTaggerSource<TData, TTagSpan> asyncTaggerSource)
         {
             _asyncTaggerSource = asyncTaggerSource;
             _asyncTaggerSource.Changed += OnAsyncTaggerSourceChanged;
@@ -359,13 +358,15 @@ namespace EditorUtils.Implementation.Tagging
             }
         }
 
+        protected abstract void OnChanged(SnapshotSpan span);
+
         /// <summary>
         /// Given a new tag list determine if the results differ from what we would've been 
         /// returning from our TrackingCacheData over the same SnapshotSpan.  Often times the 
         /// new data is the same as the old hence we don't need to produce any changed information
         /// to the buffer
         /// </summary>
-        internal bool DidTagsChange(SnapshotSpan span, ReadOnlyCollection<ITagSpan<TTag>> tagList)
+        internal bool DidTagsChange(SnapshotSpan span, ReadOnlyCollection<TTagSpan> tagList)
         {
             if (!_tagCache.TrackingCacheData.HasValue || !_tagCache.TrackingCacheData.Value.ContainsCachedTags(span))
             {
@@ -375,24 +376,24 @@ namespace EditorUtils.Implementation.Tagging
             }
 
             var trackingCacheData = _tagCache.TrackingCacheData.Value;
-            var trackingTagList = trackingCacheData.GetCachedTags(span.Snapshot);
+            var trackingTagList = trackingCacheData.GetCachedTags(_asyncTaggerSource, span.Snapshot);
             if (trackingTagList.Count != tagList.Count)
             {
                 return true;
             }
 
             var trackingSet = trackingTagList
-                .Select(tagSpan => tagSpan.Span)
+                .Select(tagSpan => _asyncTaggerSource.GetSpan(tagSpan))
                 .ToHashSet();
 
-            return tagList.Any(x => !trackingSet.Contains(x.Span));
+            return tagList.Any(x => !trackingSet.Contains(_asyncTaggerSource.GetSpan(x)));
         }
 
         /// <summary>
         /// Get the tags for the specified NormalizedSnapshotSpanCollection.  Use the cache if 
         /// possible and possibly go to the background if necessary
         /// </summary>
-        internal IEnumerable<ITagSpan<TTag>> GetTags(NormalizedSnapshotSpanCollection col)
+        internal IEnumerable<TTagSpan> GetTags(NormalizedSnapshotSpanCollection col)
         {
             // The editor itself will never send an empty collection to GetTags.  But this is an 
             // API and other components are free to call it with whatever values they like
@@ -410,7 +411,7 @@ namespace EditorUtils.Implementation.Tagging
             }
 
             EditorUtilsTrace.TraceInfo("AsyncTagger::GetTags Count {0}", col.Count);
-            IEnumerable<ITagSpan<TTag>> all = null;
+            IEnumerable<TTagSpan> all = null;
             foreach (var span in col)
             {
                 var current = GetTags(span);
@@ -422,14 +423,14 @@ namespace EditorUtils.Implementation.Tagging
             return all;
         }
 
-        private IEnumerable<ITagSpan<TTag>> GetTags(SnapshotSpan span)
+        private IEnumerable<TTagSpan> GetTags(SnapshotSpan span)
         {
             var lineRange = SnapshotLineRange.CreateForSpan(span);
             EditorUtilsTrace.TraceInfo("AsyncTagger::GetTags {0} - {1}", lineRange.StartLineNumber, lineRange.LastLineNumber);
 
             // First try and see if the tagger can provide prompt data.  We want to avoid 
             // creating Task<T> instances if possible.  
-            IEnumerable<ITagSpan<TTag>> tagList = EmptyTagList;
+            IEnumerable<TTagSpan> tagList = EmptyTagList;
             if (!TryGetTagsPrompt(span, out tagList) &&
                 !TryGetTagsFromBackgroundDataCache(span, out tagList))
             {
@@ -449,7 +450,7 @@ namespace EditorUtils.Implementation.Tagging
             // requested NormalizedSnapshotSpanCollection.  The cache lookups don't dig down and 
             // instead return all available tags.  We filter down the collection here to what's 
             // necessary.
-            return tagList.Where(tagSpan => tagSpan.Span.IntersectsWith(span));
+            return tagList.Where(tagSpan => _asyncTaggerSource.GetSpan(tagSpan).IntersectsWith(span));
         }
 
         private void Dispose()
@@ -474,12 +475,12 @@ namespace EditorUtils.Implementation.Tagging
         /// <summary>
         /// Try and get the tags promptly from the IAsyncTaggerSource
         /// </summary>
-        private bool TryGetTagsPrompt(SnapshotSpan span, out IEnumerable<ITagSpan<TTag>> tagList)
+        private bool TryGetTagsPrompt(SnapshotSpan span, out IEnumerable<TTagSpan> tagList)
         {
             return _asyncTaggerSource.TryGetTagsPrompt(span, out tagList);
         }
 
-        private bool TryGetTagsFromBackgroundDataCache(SnapshotSpan span, out IEnumerable<ITagSpan<TTag>> tagList)
+        private bool TryGetTagsFromBackgroundDataCache(SnapshotSpan span, out IEnumerable<TTagSpan> tagList)
         {
             if (!_tagCache.BackgroundCacheData.HasValue || _tagCache.BackgroundCacheData.Value.Snapshot != span.Snapshot)
             {
@@ -503,7 +504,7 @@ namespace EditorUtils.Implementation.Tagging
             }
         }
 
-        private ReadOnlyCollection<ITagSpan<TTag>> GetTagsFromTrackingDataCache(ITextSnapshot snapshot)
+        private ReadOnlyCollection<TTagSpan> GetTagsFromTrackingDataCache(ITextSnapshot snapshot)
         {
             if (!_tagCache.TrackingCacheData.HasValue)
             {
@@ -511,7 +512,7 @@ namespace EditorUtils.Implementation.Tagging
             }
 
             var trackingCacheData = _tagCache.TrackingCacheData.Value;
-            return trackingCacheData.GetCachedTags(snapshot);
+            return trackingCacheData.GetCachedTags(_asyncTaggerSource, snapshot);
         }
 
         /// <summary>
@@ -632,14 +633,14 @@ namespace EditorUtils.Implementation.Tagging
 
         [UsedInBackgroundThread]
         private static void GetTagsInBackgroundCore(
-            IAsyncTaggerSource<TData, TTag> asyncTaggerSource,
+            IAsyncTaggerSource<TData, TTagSpan> asyncTaggerSource,
             TData data,
             int chunkCount,
             Channel channel,
             NormalizedLineRangeCollection visited,
             CancellationToken cancellationToken,
             Action<CompleteReason> onComplete,
-            Action<SnapshotLineRange, ReadOnlyCollection<ITagSpan<TTag>>> onProgress)
+            Action<SnapshotLineRange, ReadOnlyCollection<TTagSpan>> onProgress)
         {
             CompleteReason completeReason;
             try
@@ -808,7 +809,7 @@ namespace EditorUtils.Implementation.Tagging
             if (_tagCache.BackgroundCacheData.HasValue && _tagCache.BackgroundCacheData.Value.Snapshot != snapshot)
             {
                 var backgroundCacheData = _tagCache.BackgroundCacheData.Value;
-                var trackingCacheData = backgroundCacheData.CreateTrackingCacheData();
+                var trackingCacheData = backgroundCacheData.CreateTrackingCacheData(_asyncTaggerSource);
                 if (_tagCache.TrackingCacheData.HasValue)
                 {
                     trackingCacheData = trackingCacheData.Merge(snapshot, _tagCache.TrackingCacheData.Value);
@@ -828,11 +829,7 @@ namespace EditorUtils.Implementation.Tagging
         {
             var lineRange = SnapshotLineRange.CreateForSpan(span);
             EditorUtilsTrace.TraceInfo("AsyncTagger::RaiseTagsChanged {0} - {1}", lineRange.StartLineNumber, lineRange.LastLineNumber);
-
-            if (_tagsChanged != null)
-            {
-                _tagsChanged(this, new SnapshotSpanEventArgs(span));
-            }
+            OnChanged(span);
         }
 
         /// <summary>
@@ -890,7 +887,7 @@ namespace EditorUtils.Implementation.Tagging
         ///
         /// Called on the main thread
         /// </summary>
-        private void OnGetTagsInBackgroundProgress(CancellationTokenSource cancellationTokenSource, SnapshotLineRange lineRange, ReadOnlyCollection<ITagSpan<TTag>> tagList)
+        private void OnGetTagsInBackgroundProgress(CancellationTokenSource cancellationTokenSource, SnapshotLineRange lineRange, ReadOnlyCollection<TTagSpan> tagList)
         {
             if (!IsActiveBackgroundRequest(cancellationTokenSource))
             {
@@ -967,21 +964,6 @@ namespace EditorUtils.Implementation.Tagging
                 }
             }
         }
-
-        #region ITagger<TTag>
-
-        IEnumerable<ITagSpan<TTag>> ITagger<TTag>.GetTags(NormalizedSnapshotSpanCollection col)
-        {
-            return GetTags(col);
-        }
-
-        event EventHandler<SnapshotSpanEventArgs> ITagger<TTag>.TagsChanged
-        {
-            add { _tagsChanged += value; }
-            remove { _tagsChanged -= value; }
-        }
-
-        #endregion
 
         #region IDisposable
 

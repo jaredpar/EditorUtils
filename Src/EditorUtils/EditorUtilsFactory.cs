@@ -23,7 +23,7 @@ namespace EditorUtils
         /// <summary>
         /// Create an ITagger implementation for the IAsyncTaggerSource.
         /// </summary>
-        public static ITagger<TTag> CreateAsyncTaggerRaw<TData, TTag>(IAsyncTaggerSource<TData, TTag> asyncTaggerSource)
+        public static ITagger<TTag> CreateAsyncTaggerRaw<TData, TTag>(IAsyncTaggerSource<TData, ITagSpan<TTag>> asyncTaggerSource)
             where TTag : ITag
         {
             return new AsyncTagger<TData, TTag>(asyncTaggerSource);
@@ -33,7 +33,7 @@ namespace EditorUtils
         /// Create an ITagger implementation for the IAsyncTaggerSource.  This instance will be a counted 
         /// wrapper over the single IAsyncTaggerSource represented by the specified key
         /// </summary>
-        public static ITagger<TTag> CreateAsyncTagger<TData, TTag>(PropertyCollection propertyCollection, object key, Func<IAsyncTaggerSource<TData, TTag>> createFunc)
+        public static ITagger<TTag> CreateAsyncTagger<TData, TTag>(PropertyCollection propertyCollection, object key, Func<IAsyncTaggerSource<TData, ITagSpan<TTag>>> createFunc)
             where TTag : ITag
         {
             return CountedTagger<TTag>.Create(

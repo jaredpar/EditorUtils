@@ -3,7 +3,7 @@ using System.Threading;
 using EditorUtils.Implementation.Utilities;
 namespace EditorUtils.Implementation.Tagging
 {
-    internal sealed partial class AsyncTagger<TData, TTag>
+    internal abstract partial class AsyncProducer<TData, TTagSpan>
     {
         /// <summary>
         /// This class is used to support the one way transfer of SnapshotLineRange values between
