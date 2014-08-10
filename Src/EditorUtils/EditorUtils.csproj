@@ -62,11 +62,14 @@
     <Compile Include="Extensions.cs" />
     <Compile Include="IAdhocOutliner.cs" />
     <Compile Include="IAsyncTaggerSource.cs" />
+    <Compile Include="IBasicClassifierSource.cs" />
     <Compile Include="IBasicTaggerSource.cs" />
     <Compile Include="IBasicUndoHistoryRegistry.cs" />
     <Compile Include="Implementation\BasicUndo\BasicUndoHistory.cs" />
     <Compile Include="Implementation\BasicUndo\BasicUndoHistoryRegistry.cs" />
     <Compile Include="Implementation\BasicUndo\BasicUndoTransaction.cs" />
+    <Compile Include="Implementation\Tagging\BasicClassifier.cs" />
+    <Compile Include="Implementation\Tagging\BasicProducer.cs" />
     <Compile Include="Implementation\Utilities\AdhocOutliner.cs" />
     <Compile Include="Implementation\Tagging\AsyncTagger.cs" />
     <Compile Include="Implementation\Tagging\AsyncTagger.Channel.cs" />

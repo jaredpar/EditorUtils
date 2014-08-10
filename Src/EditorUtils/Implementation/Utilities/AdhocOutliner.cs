@@ -145,11 +145,6 @@ namespace EditorUtils.Implementation.Utilities
 
         #region IBasicTagger<OutliningRegionTag>
 
-        ITextSnapshot IBasicTaggerSource<OutliningRegionTag>.TextSnapshot
-        {
-            get { return _textBuffer.CurrentSnapshot; }
-        }
-
         ReadOnlyCollection<ITagSpan<OutliningRegionTag>> IBasicTaggerSource<OutliningRegionTag>.GetTags(SnapshotSpan span)
         {
             return GetRegions(span);

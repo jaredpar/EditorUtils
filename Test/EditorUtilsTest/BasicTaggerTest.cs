@@ -53,11 +53,6 @@ namespace EditorUtils.UnitTest
                 return _tags.ToReadOnlyCollection();
             }
 
-            ITextSnapshot IBasicTaggerSource<TextMarkerTag>.TextSnapshot
-            {
-                get { return _textBuffer.CurrentSnapshot; }
-            }
-
             #endregion
         }
 

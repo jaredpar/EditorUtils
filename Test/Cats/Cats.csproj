@@ -71,6 +71,9 @@
     <Compile Include="CatTaggerFormat.cs" />
     <Compile Include="CatTaggerProvider.cs" />
     <Compile Include="Contstants.cs" />
+    <Compile Include="DogClassifier.cs" />
+    <Compile Include="DogClassifierProvider.cs" />
+    <Compile Include="DogTaggerFormat.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
