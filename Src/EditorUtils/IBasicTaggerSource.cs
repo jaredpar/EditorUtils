@@ -5,13 +5,12 @@ using Microsoft.VisualStudio.Text.Tagging;
 
 namespace EditorUtils
 {
-    public interface IBasicTaggerSource<TTag>
-        where TTag : ITag
+    public interface IBasicTaggerSource<TTagSpan>
     {
         /// <summary>
         /// Get the tags for the given SnapshotSpan
         /// </summary>
-        ReadOnlyCollection<ITagSpan<TTag>> GetTags(SnapshotSpan span);
+        ReadOnlyCollection<TTagSpan> GetTags(SnapshotSpan span);
 
         /// <summary>
         /// Raised when the source changes in some way

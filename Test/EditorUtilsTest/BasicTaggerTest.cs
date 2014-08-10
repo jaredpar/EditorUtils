@@ -13,7 +13,7 @@ namespace EditorUtils.UnitTest
     {
         #region TestableBasicTaggerSource 
 
-        protected sealed class TestableBasicTaggerSource : IBasicTaggerSource<TextMarkerTag>
+        protected sealed class TestableBasicTaggerSource : IBasicTaggerSource<ITagSpan<TextMarkerTag>>
         {
             private readonly ITextBuffer _textBuffer;
             private List<ITagSpan<TextMarkerTag>> _tags;
@@ -42,13 +42,13 @@ namespace EditorUtils.UnitTest
 
             #region IBasicTaggerSource<TextMarkerTag>
 
-            event EventHandler IBasicTaggerSource<TextMarkerTag>.Changed
+            event EventHandler IBasicTaggerSource<ITagSpan<TextMarkerTag>>.Changed
             {
                 add { _changed += value; }
                 remove { _changed -= value; }
             }
 
-            ReadOnlyCollection<ITagSpan<TextMarkerTag>> IBasicTaggerSource<TextMarkerTag>.GetTags(SnapshotSpan span)
+            ReadOnlyCollection<ITagSpan<TextMarkerTag>> IBasicTaggerSource<ITagSpan<TextMarkerTag>>.GetTags(SnapshotSpan span)
             {
                 return _tags.ToReadOnlyCollection();
             }

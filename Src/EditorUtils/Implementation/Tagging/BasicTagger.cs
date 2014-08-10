@@ -1,47 +1,26 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Tagging;
-using System.Collections.ObjectModel;
 
 namespace EditorUtils.Implementation.Tagging
 {
     internal sealed class BasicTagger<TTag> : BasicProducer<ITagSpan<TTag>>, ITagger<TTag>
         where TTag : ITag
     {
-        private readonly IBasicTaggerSource<TTag> _basicTaggerSource;
         private event EventHandler<SnapshotSpanEventArgs> _tagsChanged;
 
-        internal BasicTagger(IBasicTaggerSource<TTag> basicTaggerSource)
+        internal BasicTagger(IBasicTaggerSource<ITagSpan<TTag>> basicTaggerSource) : base(basicTaggerSource)
         {
-            Contract.Requires(basicTaggerSource != null);
-            _basicTaggerSource = basicTaggerSource;
-            _basicTaggerSource.Changed += OnBasicTaggerSourceChanged;
+
         }
 
-        protected override void Dispose()
+        protected override void OnChanged(SnapshotSpan changedSpan)
         {
-            _basicTaggerSource.Changed -= OnBasicTaggerSourceChanged;
-            var disposable = _basicTaggerSource as IDisposable;
-            if (disposable != null)
+            var list = _tagsChanged;
+            if (list != null)
             {
-                disposable.Dispose();
-            }
-        }
-
-        protected override ReadOnlyCollection<ITagSpan<TTag>> GetProducedTagSpansCore(SnapshotSpan span)
-        {
-            return _basicTaggerSource.GetTags(span);
-        }
-
-        private void OnBasicTaggerSourceChanged(object sender, EventArgs e)
-        {
-            if (CachedRequestSpan.HasValue && _tagsChanged != null)
-            {
-                var args = new SnapshotSpanEventArgs(CachedRequestSpan.Value);
-                _tagsChanged(this, args);
+                list(this, new SnapshotSpanEventArgs(changedSpan));
             }
         }
 

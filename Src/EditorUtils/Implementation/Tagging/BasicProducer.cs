@@ -10,6 +10,7 @@ namespace EditorUtils.Implementation.Tagging
 {
     internal abstract class BasicProducer<TTagSpan> : IDisposable
     {
+        private readonly IBasicTaggerSource<TTagSpan> _basicTaggerSource;
         private SnapshotSpan? _cachedRequestSpan;
 
         internal SnapshotSpan? CachedRequestSpan
@@ -18,14 +19,30 @@ namespace EditorUtils.Implementation.Tagging
             set { _cachedRequestSpan = value; }
         }
 
-        internal BasicProducer()
+        internal BasicProducer(IBasicTaggerSource<TTagSpan> basicTaggerSource)
         {
-
+            Contract.Requires(basicTaggerSource != null);
+            _basicTaggerSource = basicTaggerSource;
+            _basicTaggerSource.Changed += OnBasicTaggerSourceChanged;
         }
 
-        protected abstract void Dispose();
+        private void Dispose()
+        {
+            _basicTaggerSource.Changed -= OnBasicTaggerSourceChanged;
+            var disposable = _basicTaggerSource as IDisposable;
+            if (disposable != null)
+            {
+                disposable.Dispose();
+            }
+        }
 
-        protected abstract ReadOnlyCollection<TTagSpan> GetProducedTagSpansCore(SnapshotSpan span);
+        private void OnBasicTaggerSourceChanged(object sender, EventArgs e)
+        {
+            if (CachedRequestSpan.HasValue)
+            {
+                OnChanged(CachedRequestSpan.Value);
+            }
+        }
 
         private void AdjustRequestSpan(NormalizedSnapshotSpanCollection col)
         {
@@ -35,6 +52,8 @@ namespace EditorUtils.Implementation.Tagging
                 _cachedRequestSpan = TaggerUtil.AdjustRequestedSpan(_cachedRequestSpan, requestSpan);
             }
         }
+
+        protected abstract void OnChanged(SnapshotSpan changedSpan);
 
         protected ReadOnlyCollection<TTagSpan> GetProducedTagSpans(NormalizedSnapshotSpanCollection col)
         {
@@ -46,7 +65,7 @@ namespace EditorUtils.Implementation.Tagging
 
             if (col.Count == 1)
             {
-                return GetProducedTagSpansCore(col[0]);
+                return _basicTaggerSource.GetTags(col[0]);
             }
 
             // Even though it's easier don't do a GetTags request for the overarching SnapshotSpan
@@ -56,7 +75,7 @@ namespace EditorUtils.Implementation.Tagging
             var list = new List<TTagSpan>();
             foreach (var span in col)
             {
-                list.AddRange(GetProducedTagSpansCore(span));
+                list.AddRange(_basicTaggerSource.GetTags(span));
             }
 
             return list.ToReadOnlyCollectionShallow();

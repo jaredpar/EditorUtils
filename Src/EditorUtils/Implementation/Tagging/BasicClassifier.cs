@@ -10,37 +10,19 @@ namespace EditorUtils.Implementation.Tagging
 {
     internal sealed class BasicClassifier : BasicProducer<ClassificationSpan>, IClassifier
     {
-        private readonly IBasicClassifierSource _basicClassifierSource;
         private EventHandler<ClassificationChangedEventArgs> _classificationChanged;
 
-        internal BasicClassifier(IBasicClassifierSource basicClassifierSource)
+        internal BasicClassifier(IBasicTaggerSource<ClassificationSpan> basicTaggerSource) : base(basicTaggerSource)
         {
-            Contract.Requires(basicClassifierSource != null);
-            _basicClassifierSource = basicClassifierSource;
-            _basicClassifierSource.Changed += OnBasicClassifierSourceChanged;
+
         }
 
-        protected override void Dispose()
+        protected override void OnChanged(SnapshotSpan changedSpan)
         {
-            _basicClassifierSource.Changed -= OnBasicClassifierSourceChanged;
-            var disposable = _basicClassifierSource as IDisposable;
-            if (disposable != null)
+            var list = _classificationChanged;
+            if (list != null)
             {
-                disposable.Dispose();
-            }
-        }
-
-        protected override ReadOnlyCollection<ClassificationSpan> GetProducedTagSpansCore(SnapshotSpan span)
-        {
-            return _basicClassifierSource.GetClassificationSpans(span);
-        }
-
-        private void OnBasicClassifierSourceChanged(object sender, EventArgs e)
-        {
-            if (CachedRequestSpan.HasValue && _classificationChanged != null)
-            {
-                var args = new ClassificationChangedEventArgs(CachedRequestSpan.Value);
-                _classificationChanged(this, args);
+                list(this, new ClassificationChangedEventArgs(changedSpan));
             }
         }
 

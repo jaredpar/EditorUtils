@@ -62,7 +62,6 @@
     <Compile Include="Extensions.cs" />
     <Compile Include="IAdhocOutliner.cs" />
     <Compile Include="IAsyncTaggerSource.cs" />
-    <Compile Include="IBasicClassifierSource.cs" />
     <Compile Include="IBasicTaggerSource.cs" />
     <Compile Include="IBasicUndoHistoryRegistry.cs" />
     <Compile Include="Implementation\BasicUndo\BasicUndoHistory.cs" />

@@ -13,7 +13,7 @@ namespace EditorUtils.Implementation.Utilities
     /// Implementation of the IAdhocOutliner service.  This class is only used for testing
     /// so it's focused on creating the simplest implementation vs. the most efficient
     /// </summary>
-    internal sealed class AdhocOutliner : IAdhocOutliner, IBasicTaggerSource<OutliningRegionTag>
+    internal sealed class AdhocOutliner : IAdhocOutliner, IBasicTaggerSource<ITagSpan<OutliningRegionTag>>
     {
         struct OutliningData
         {
@@ -145,12 +145,12 @@ namespace EditorUtils.Implementation.Utilities
 
         #region IBasicTagger<OutliningRegionTag>
 
-        ReadOnlyCollection<ITagSpan<OutliningRegionTag>> IBasicTaggerSource<OutliningRegionTag>.GetTags(SnapshotSpan span)
+        ReadOnlyCollection<ITagSpan<OutliningRegionTag>> IBasicTaggerSource<ITagSpan<OutliningRegionTag>>.GetTags(SnapshotSpan span)
         {
             return GetRegions(span);
         }
 
-        event EventHandler IBasicTaggerSource<OutliningRegionTag>.Changed
+        event EventHandler IBasicTaggerSource<ITagSpan<OutliningRegionTag>>.Changed
         {
             add { _changed += value; }
             remove { _changed -= value; }

@@ -9,7 +9,7 @@ using System.Collections.ObjectModel;
 
 namespace Cats
 {
-    internal sealed class DogClassifier : IBasicClassifierSource
+    internal sealed class DogClassifier : IBasicTaggerSource<ClassificationSpan>
     {
         private readonly IClassificationType _classificationType;
 #pragma warning disable 67
@@ -21,7 +21,7 @@ namespace Cats
             _classificationType = classificationType;
         }
 
-        public ReadOnlyCollection<ClassificationSpan> GetClassificationSpans(SnapshotSpan span)
+        public ReadOnlyCollection<ClassificationSpan> GetTags(SnapshotSpan span)
         {
             var list = new List<ClassificationSpan>();
             var position = span.Start.Position;

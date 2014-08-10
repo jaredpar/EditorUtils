@@ -45,7 +45,7 @@ namespace EditorUtils
         /// <summary>
         /// Create an ITagger implementation for the IBasicTaggerSource
         /// </summary>
-        public static ITagger<TTag> CreateBasicTaggerRaw<TTag>(IBasicTaggerSource<TTag> basicTaggerSource)
+        public static ITagger<TTag> CreateBasicTaggerRaw<TTag>(IBasicTaggerSource<ITagSpan<TTag>> basicTaggerSource)
             where TTag : ITag
         {
             return new BasicTagger<TTag>(basicTaggerSource);
@@ -55,7 +55,7 @@ namespace EditorUtils
         /// Create an ITagger implementation for the IBasicTaggerSource.  This instance will be a counted
         /// wrapper over the single IBasicTaggerSource represented by the specified key
         /// </summary>
-        public static ITagger<TTag> CreateBasicTagger<TTag>(PropertyCollection propertyCollection, object key, Func<IBasicTaggerSource<TTag>> createFunc)
+        public static ITagger<TTag> CreateBasicTagger<TTag>(PropertyCollection propertyCollection, object key, Func<IBasicTaggerSource<ITagSpan<TTag>>> createFunc)
             where TTag : ITag
         {
             return CountedTagger<TTag>.Create(
@@ -64,9 +64,9 @@ namespace EditorUtils
                 () => new BasicTagger<TTag>(createFunc()));
         }
 
-        public static IClassifier CreateBasicClassifierRaw(IBasicClassifierSource basicClassifierSource)
+        public static IClassifier CreateBasicClassifierRaw(IBasicTaggerSource<ClassificationSpan> basicTaggerSource)
         {
-            return new BasicClassifier(basicClassifierSource);
+            return new BasicClassifier(basicTaggerSource);
         }
 
         public static IBasicUndoHistoryRegistry CreateBasicUndoHistoryRegistry()
@@ -100,7 +100,7 @@ namespace EditorUtils
         /// </summary>
         public static ITagger<OutliningRegionTag> CreateOutlinerTagger(ITextBuffer textBuffer)
         {
-            return EditorUtilsFactory.CreateBasicTagger(
+            return CreateBasicTagger(
                 textBuffer.Properties,
                 _adhocOutlinerTaggerKey,
                 () => GetOrCreateOutlinerCore(textBuffer));

@@ -131,7 +131,7 @@ namespace EditorUtils.UnitTest
 
         public sealed class PureBasicTaggerTest : TaggerCommonTest
         {
-            internal sealed class Tagger : IBasicTaggerSource<TextMarkerTag>
+            internal sealed class Tagger : IBasicTaggerSource<ITagSpan<TextMarkerTag>>
             {
                 private readonly ITextBuffer _textBuffer;
 
@@ -179,7 +179,7 @@ namespace EditorUtils.UnitTest
         {
             private Tagger _basicTagger;
 
-            internal sealed class Tagger : IBasicTaggerSource<TextMarkerTag>
+            internal sealed class Tagger : IBasicTaggerSource<ITagSpan<TextMarkerTag>>
             {
                 private readonly ITextBuffer _textBuffer;
                 private bool _enabled;
