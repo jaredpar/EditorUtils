@@ -17,6 +17,9 @@
     <GeneratePkgDefFile>false</GeneratePkgDefFile>
     <VsSdkTargets>$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\VSSDK\Microsoft.VsSDK.targets</VsSdkTargets>
     <VsSdkTargets Condition=" '$(VisualStudioVersion)' == '' ">$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v10.0\VSSDK\Microsoft.VsSDK.targets</VsSdkTargets>
+    <StartAction>Program</StartAction>
+    <StartProgram>$(DevEnvDir)\devenv.exe</StartProgram>
+    <StartArguments>/rootsuffix Exp</StartArguments>
   </PropertyGroup>
   <!-- This is needed to prevent forced migrations when opening the project in Vs2012 -->
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '11.0' ">
