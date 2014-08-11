@@ -12,7 +12,7 @@ namespace EditorUtils.Implementation.Tagging
     {
         private event EventHandler<SnapshotSpanEventArgs> _tagsChanged;
 
-        internal AsyncTagger(IAsyncTaggerSource<TData, ITagSpan<TTag>> asyncTaggerSource) : base(asyncTaggerSource)
+        internal AsyncTagger(IAsyncTaggerSource<TData, ITagSpan<TTag>> asyncTaggerSource) : base(asyncTaggerSource, TagSpanUtil<TTag>.Instance)
         {
 
         }

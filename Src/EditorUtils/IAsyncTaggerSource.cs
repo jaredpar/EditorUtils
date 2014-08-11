@@ -13,7 +13,7 @@ namespace EditorUtils
     /// and each method which is called on the background thread is labelled as such
     /// be called on any thread
     /// </summary>
-    public interface IAsyncTaggerSource<TData, TTagSpan>
+    public interface IAsyncTaggerSource<TData, TTag>
     {
         /// <summary>
         /// Delay in milliseconds which should occur between the call to GetTags and the kicking off
@@ -51,7 +51,7 @@ namespace EditorUtils
         /// Called from the background thread only
         /// </summary>
         [UsedInBackgroundThread]
-        ReadOnlyCollection<TTagSpan> GetTagsInBackground(TData data, SnapshotSpan span, CancellationToken cancellationToken);
+        ReadOnlyCollection<TTag> GetTagsInBackground(TData data, SnapshotSpan span, CancellationToken cancellationToken);
 
         /// <summary>
         /// To prevent needless spawning of Task<T> values the async tagger has the option
@@ -60,17 +60,7 @@ namespace EditorUtils
         ///
         /// Called from the main thread only
         /// <summary>
-        bool TryGetTagsPrompt(SnapshotSpan span, out IEnumerable<TTagSpan> tags);
-
-        /// <summary>
-        /// Get the SnapshotSpan for the given tag
-        /// </summary>
-        SnapshotSpan GetSpan(TTagSpan tagSpan);
-
-        /// <summary>
-        /// Create a new instance of the given tag at the provided SnapshotSpan
-        /// </summary>
-        TTagSpan CreateTagSpan(TTagSpan oldTagSpan, SnapshotSpan span);
+        bool TryGetTagsPrompt(SnapshotSpan span, out IEnumerable<TTag> tags);
 
         /// <summary>
         /// Raised by the source when the underlying source has changed.  All previously

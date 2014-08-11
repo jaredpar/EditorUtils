@@ -11,7 +11,7 @@ namespace EditorUtils.Implementation.Tagging
     {
         private EventHandler<ClassificationChangedEventArgs> _classificationChanged;
 
-        internal AsyncClassifier(IAsyncTaggerSource<TData, ClassificationSpan> asyncTaggerSource) : base(asyncTaggerSource)
+        internal AsyncClassifier(IAsyncTaggerSource<TData, ClassificationSpan> asyncTaggerSource) : base(asyncTaggerSource, ClassificationSpanUtil.Instance)
         {
 
         }

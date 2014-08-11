@@ -95,16 +95,6 @@ namespace EditorUtils
             return TryGetTagsPrompt(span, out tags);
         }
 
-        SnapshotSpan IAsyncTaggerSource<TData, ITagSpan<TTag>>.GetSpan(ITagSpan<TTag> tagSpan)
-        {
-            return tagSpan.Span;
-        }
-
-        ITagSpan<TTag> IAsyncTaggerSource<TData, ITagSpan<TTag>>.CreateTagSpan(ITagSpan<TTag> oldTagSpan, SnapshotSpan span)
-        {
-            return new TagSpan<TTag>(span, oldTagSpan.Tag);
-        }
-
         event EventHandler IAsyncTaggerSource<TData, ITagSpan<TTag>>.Changed
         {
             add { _changedEvent += value; }

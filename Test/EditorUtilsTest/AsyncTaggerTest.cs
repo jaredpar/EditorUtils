@@ -166,16 +166,6 @@ namespace EditorUtils.UnitTest
                 IsDisposed = true;
             }
 
-            SnapshotSpan IAsyncTaggerSource<string, ITagSpan<TextMarkerTag>>.GetSpan(ITagSpan<TextMarkerTag> tagSpan)
-            {
-                return tagSpan.Span;
-            }
-
-            ITagSpan<TextMarkerTag> IAsyncTaggerSource<string, ITagSpan<TextMarkerTag>>.CreateTagSpan(ITagSpan<TextMarkerTag> oldTagSpan, SnapshotSpan span)
-            {
-                return new TagSpan<TextMarkerTag>(span, oldTagSpan.Tag);
-            }
-
             #endregion
         }
 
