@@ -22,17 +22,26 @@ namespace EditorUtils
         /// <summary>
         /// Create an ITagger implementation for the IAsyncTaggerSource.
         /// </summary>
-        public static ITagger<TTag> CreateAsyncTaggerRaw<TData, TTag>(IAsyncTaggerSource<TData, TTag> asyncTaggerSource)
+        public static ITagger<TTag> CreateTaggerRaw<TData, TTag>(IAsyncTaggerSource<TData, TTag> asyncTaggerSource)
             where TTag : ITag
         {
             return new AsyncTagger<TData, TTag>(asyncTaggerSource);
+        }
+        
+        /// <summary>
+        /// Create an ITagger implementation for the IBasicTaggerSource
+        /// </summary>
+        public static ITagger<TTag> CreateTaggerRaw<TTag>(IBasicTaggerSource<TTag> basicTaggerSource)
+            where TTag : ITag
+        {
+            return new BasicTagger<TTag>(basicTaggerSource);
         }
 
         /// <summary>
         /// Create an ITagger implementation for the IAsyncTaggerSource.  This instance will be a counted 
         /// wrapper over the single IAsyncTaggerSource represented by the specified key
         /// </summary>
-        public static ITagger<TTag> CreateAsyncTagger<TData, TTag>(PropertyCollection propertyCollection, object key, Func<IAsyncTaggerSource<TData, TTag>> createFunc)
+        public static ITagger<TTag> CreateTagger<TData, TTag>(PropertyCollection propertyCollection, object key, Func<IAsyncTaggerSource<TData, TTag>> createFunc)
             where TTag : ITag
         {
             return CountedTagger<TTag>.Create(
@@ -42,19 +51,10 @@ namespace EditorUtils
         }
 
         /// <summary>
-        /// Create an ITagger implementation for the IBasicTaggerSource
-        /// </summary>
-        public static ITagger<TTag> CreateBasicTaggerRaw<TTag>(IBasicTaggerSource<TTag> basicTaggerSource)
-            where TTag : ITag
-        {
-            return new BasicTagger<TTag>(basicTaggerSource);
-        }
-
-        /// <summary>
         /// Create an ITagger implementation for the IBasicTaggerSource.  This instance will be a counted
         /// wrapper over the single IBasicTaggerSource represented by the specified key
         /// </summary>
-        public static ITagger<TTag> CreateBasicTagger<TTag>(PropertyCollection propertyCollection, object key, Func<IBasicTaggerSource<TTag>> createFunc)
+        public static ITagger<TTag> CreateTagger<TTag>(PropertyCollection propertyCollection, object key, Func<IBasicTaggerSource<TTag>> createFunc)
             where TTag : ITag
         {
             return CountedTagger<TTag>.Create(
@@ -94,7 +94,7 @@ namespace EditorUtils
         /// </summary>
         public static ITagger<OutliningRegionTag> CreateOutlinerTagger(ITextBuffer textBuffer)
         {
-            return EditorUtilsFactory.CreateBasicTagger(
+            return EditorUtilsFactory.CreateTagger(
                 textBuffer.Properties,
                 _adhocOutlinerTaggerKey,
                 () => GetOrCreateOutlinerCore(textBuffer));
