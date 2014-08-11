@@ -11,13 +11,14 @@ namespace EditorUtils.Implementation.Tagging
     {
         private readonly IBasicTaggerSource<TTag> _basicTaggerSource;
         private SnapshotSpan? _cachedRequestSpan;
-        private event EventHandler<SnapshotSpanEventArgs> _tagsChanged;
 
         internal SnapshotSpan? CachedRequestSpan
         {
             get { return _cachedRequestSpan; }
             set { _cachedRequestSpan = value; }
         }
+
+        internal event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
         internal BasicTagger(IBasicTaggerSource<TTag> basicTaggerSource)
         {
@@ -26,7 +27,7 @@ namespace EditorUtils.Implementation.Tagging
             _basicTaggerSource.Changed += OnBasicTaggerSourceChanged;
         }
 
-        private void Dispose()
+        internal void Dispose()
         {
             _basicTaggerSource.Changed -= OnBasicTaggerSourceChanged;
             var disposable = _basicTaggerSource as IDisposable;
@@ -45,7 +46,7 @@ namespace EditorUtils.Implementation.Tagging
             }
         }
 
-        private IEnumerable<ITagSpan<TTag>> GetTags(NormalizedSnapshotSpanCollection col)
+        internal IEnumerable<ITagSpan<TTag>> GetTags(NormalizedSnapshotSpanCollection col)
         {
             AdjustRequestSpan(col);
             if (col.Count == 0)
@@ -64,10 +65,11 @@ namespace EditorUtils.Implementation.Tagging
 
         private void OnBasicTaggerSourceChanged(object sender, EventArgs e)
         {
-            if (_cachedRequestSpan.HasValue && _tagsChanged != null)
+            var list = TagsChanged;
+            if (_cachedRequestSpan.HasValue && list != null)
             {
                 var args = new SnapshotSpanEventArgs(_cachedRequestSpan.Value);
-                _tagsChanged(this, args);
+                list(this, args);
             }
         }
 
@@ -80,8 +82,8 @@ namespace EditorUtils.Implementation.Tagging
 
         event EventHandler<SnapshotSpanEventArgs> ITagger<TTag>.TagsChanged
         {
-            add { _tagsChanged += value; }
-            remove { _tagsChanged -= value; }
+            add { TagsChanged += value; }
+            remove { TagsChanged -= value; }
         }
 
         #endregion

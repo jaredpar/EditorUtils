@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.Utilities;
 using Microsoft.VisualStudio.Text;
 using System.Collections.Generic;
 using EditorUtils.Implementation.Utilities;
+using Microsoft.VisualStudio.Text.Classification;
 
 namespace EditorUtils
 {
@@ -61,6 +62,11 @@ namespace EditorUtils
                 key,
                 propertyCollection,
                 () => new BasicTagger<TTag>(createFunc()));
+        }
+
+        public static IClassifier CreateClassifierRaw(IBasicTaggerSource<IClassificationTag> basicTaggerSource)
+        {
+            return new BasicClassifier(basicTaggerSource);
         }
 
         public static IBasicUndoHistoryRegistry CreateBasicUndoHistoryRegistry()
