@@ -27,7 +27,7 @@ namespace EditorUtils.Implementation.Tagging
             _basicTaggerSource.Changed += OnBasicTaggerSourceChanged;
         }
 
-        internal void Dispose()
+        private void Dispose()
         {
             _basicTaggerSource.Changed -= OnBasicTaggerSourceChanged;
             var disposable = _basicTaggerSource as IDisposable;
@@ -46,7 +46,7 @@ namespace EditorUtils.Implementation.Tagging
             }
         }
 
-        internal IEnumerable<ITagSpan<TTag>> GetTags(NormalizedSnapshotSpanCollection col)
+        private IEnumerable<ITagSpan<TTag>> GetTags(NormalizedSnapshotSpanCollection col)
         {
             AdjustRequestSpan(col);
             if (col.Count == 0)

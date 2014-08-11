@@ -8,21 +8,25 @@ using Microsoft.VisualStudio.Text.Tagging;
 
 namespace EditorUtils.Implementation.Tagging
 {
-    internal sealed class BasicClassifier : IClassifier, IDisposable
+    internal sealed class Classifier : IClassifier, IDisposable
     {
-        private readonly BasicTagger<IClassificationTag> _basicTagger;
+        private readonly ITagger<IClassificationTag> _tagger;
         private event EventHandler<ClassificationChangedEventArgs> _classificationChanged;
 
-        internal BasicClassifier(IBasicTaggerSource<IClassificationTag> basicTaggerSource)
+        internal Classifier(ITagger<IClassificationTag> tagger)
         {
-            _basicTagger = new BasicTagger<IClassificationTag>(basicTaggerSource);
-            _basicTagger.TagsChanged += OnTagsChanged;
+            _tagger = tagger;
+            _tagger.TagsChanged += OnTagsChanged;
         }
 
         private void Dispose()
         {
-            _basicTagger.TagsChanged -= OnTagsChanged;
-            _basicTagger.Dispose();
+            _tagger.TagsChanged -= OnTagsChanged;
+            var disposable = _tagger as IDisposable;
+            if (disposable != null)
+            {
+                disposable.Dispose();
+            }
         }
 
         private void OnTagsChanged(object sender, SnapshotSpanEventArgs e)
@@ -44,7 +48,7 @@ namespace EditorUtils.Implementation.Tagging
 
         IList<ClassificationSpan> IClassifier.GetClassificationSpans(SnapshotSpan span)
         {
-            return _basicTagger
+            return _tagger
                 .GetTags(new NormalizedSnapshotSpanCollection(span))
                 .Select(x => new ClassificationSpan(x.Span, x.Tag.ClassificationType))
                 .ToList();

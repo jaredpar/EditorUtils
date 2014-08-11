@@ -66,7 +66,12 @@ namespace EditorUtils
 
         public static IClassifier CreateClassifierRaw(IBasicTaggerSource<IClassificationTag> basicTaggerSource)
         {
-            return new BasicClassifier(basicTaggerSource);
+            return new Classifier(CreateTaggerRaw(basicTaggerSource));
+        }
+
+        public static IClassifier CreateClassifierRaw<TData>(IAsyncTaggerSource<TData, IClassificationTag> asyncTaggerSource)
+        {
+            return new Classifier(CreateTaggerRaw(asyncTaggerSource));
         }
 
         public static IClassifier CreateClassifier(PropertyCollection propertyCollection, object key, Func<IBasicTaggerSource<IClassificationTag>> createFunc)
@@ -74,7 +79,15 @@ namespace EditorUtils
             return new CountedClassifier(
                 propertyCollection,
                 key,
-                () => new BasicClassifier(createFunc()));
+                () => CreateClassifierRaw(createFunc()));
+        }
+
+        public static IClassifier CreateClassifier<TData>(PropertyCollection propertyCollection, object key, Func<IAsyncTaggerSource<TData, IClassificationTag>> createFunc)
+        {
+            return new CountedClassifier(
+                propertyCollection,
+                key,
+                () => CreateClassifierRaw(createFunc()));
         }
 
         public static IBasicUndoHistoryRegistry CreateBasicUndoHistoryRegistry()
