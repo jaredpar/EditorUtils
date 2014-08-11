@@ -20,21 +20,10 @@ namespace EditorUtils.Implementation.Tagging
     internal sealed class CountedTagger<TTag> : ITagger<TTag>, IDisposable
         where TTag : ITag
     {
-        internal sealed class Counter
-        {
-            internal readonly ITagger<TTag> Tagger;
-            internal int Count;
-
-            internal Counter(ITagger<TTag> tagger)
-            {
-                Tagger = tagger;
-                Count = 1;
-            }
-        }
-
         private readonly ITagger<TTag> _tagger;
         private readonly object _key;
         private readonly PropertyCollection _propertyCollection;
+        private int _count;
 
         internal ITagger<TTag> Tagger
         {
@@ -49,23 +38,21 @@ namespace EditorUtils.Implementation.Tagging
             _tagger = tagger;
             _key = key;
             _propertyCollection = propertyCollection;
+            _count = 1;
         }
 
         internal void Dispose()
         {
-            Counter counter;
-            if (_propertyCollection.TryGetPropertySafe<Counter>(_key, out counter))
+            _count--;
+
+            if (_count == 0)
             {
-                counter.Count--;
-                if (counter.Count == 0)
+                var disposable = _tagger as IDisposable;
+                if (disposable != null)
                 {
-                    var disposable = counter.Tagger as IDisposable;
-                    if (disposable != null)
-                    {
-                        disposable.Dispose();
-                    }
-                    _propertyCollection.RemoveProperty(_key);
+                    disposable.Dispose();
                 }
+                _propertyCollection.RemoveProperty(_key);
             }
         }
 
@@ -74,21 +61,16 @@ namespace EditorUtils.Implementation.Tagging
             PropertyCollection propertyCollection,
             Func<ITagger<TTag>> createFunc)
         {
-            Counter counter;
-            ITagger<TTag> tagger;
-            if (propertyCollection.TryGetPropertySafe(key, out counter))
+            CountedTagger<TTag> countedTagger;
+            if (propertyCollection.TryGetPropertySafe(key, out countedTagger))
             {
-                counter.Count++;
-                tagger = counter.Tagger;
-            }
-            else
-            {
-                tagger = createFunc();
-                counter = new Counter(tagger);
-                propertyCollection[key] = counter;
+                countedTagger._count++;
+                return countedTagger;
             }
 
-            return new CountedTagger<TTag>(tagger, key, propertyCollection);
+            countedTagger = new CountedTagger<TTag>(createFunc(), key, propertyCollection);
+            propertyCollection[key] = countedTagger;
+            return countedTagger;
         }
 
         #region ITagger<TTag>
@@ -115,5 +97,4 @@ namespace EditorUtils.Implementation.Tagging
 
         #endregion
     }
-
 }

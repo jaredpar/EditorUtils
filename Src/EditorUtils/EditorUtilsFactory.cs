@@ -69,6 +69,14 @@ namespace EditorUtils
             return new BasicClassifier(basicTaggerSource);
         }
 
+        public static IClassifier CreateClassifier(PropertyCollection propertyCollection, object key, Func<IBasicTaggerSource<IClassificationTag>> createFunc)
+        {
+            return CountedClassifier.Create(
+                key,
+                propertyCollection,
+                () => new BasicClassifier(createFunc()));
+        }
+
         public static IBasicUndoHistoryRegistry CreateBasicUndoHistoryRegistry()
         {
             return new BasicTextUndoHistoryRegistry();
