@@ -45,9 +45,9 @@ namespace EditorUtils
         public static ITagger<TTag> CreateTagger<TData, TTag>(PropertyCollection propertyCollection, object key, Func<IAsyncTaggerSource<TData, TTag>> createFunc)
             where TTag : ITag
         {
-            return CountedTagger<TTag>.Create(
-                key,
+            return new CountedTagger<TTag>(
                 propertyCollection,
+                key,
                 () => new AsyncTagger<TData, TTag>(createFunc()));
         }
 
@@ -58,9 +58,9 @@ namespace EditorUtils
         public static ITagger<TTag> CreateTagger<TTag>(PropertyCollection propertyCollection, object key, Func<IBasicTaggerSource<TTag>> createFunc)
             where TTag : ITag
         {
-            return CountedTagger<TTag>.Create(
-                key,
+            return new CountedTagger<TTag>(
                 propertyCollection,
+                key,
                 () => new BasicTagger<TTag>(createFunc()));
         }
 
@@ -71,9 +71,9 @@ namespace EditorUtils
 
         public static IClassifier CreateClassifier(PropertyCollection propertyCollection, object key, Func<IBasicTaggerSource<IClassificationTag>> createFunc)
         {
-            return CountedClassifier.Create(
-                key,
+            return new CountedClassifier(
                 propertyCollection,
+                key,
                 () => new BasicClassifier(createFunc()));
         }
 

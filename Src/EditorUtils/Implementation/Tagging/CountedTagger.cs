@@ -20,70 +20,37 @@ namespace EditorUtils.Implementation.Tagging
     internal sealed class CountedTagger<TTag> : ITagger<TTag>, IDisposable
         where TTag : ITag
     {
-        private readonly ITagger<TTag> _tagger;
-        private readonly object _key;
-        private readonly PropertyCollection _propertyCollection;
-        private int _count;
+        private readonly CountedValue<ITagger<TTag>> _countedValue;
 
         internal ITagger<TTag> Tagger
         {
-            get { return _tagger; }
+            get { return _countedValue.Value; }
         }
 
         internal CountedTagger(
-            ITagger<TTag> tagger,
-            object key,
-            PropertyCollection propertyCollection)
+            PropertyCollection propertyCollection,
+            object key, 
+            Func<ITagger<TTag>> createFunc)
         {
-            _tagger = tagger;
-            _key = key;
-            _propertyCollection = propertyCollection;
-            _count = 1;
+            _countedValue = CountedValue<ITagger<TTag>>.GetOrCreate(propertyCollection, key, createFunc);
         }
 
         internal void Dispose()
         {
-            _count--;
-
-            if (_count == 0)
-            {
-                var disposable = _tagger as IDisposable;
-                if (disposable != null)
-                {
-                    disposable.Dispose();
-                }
-                _propertyCollection.RemoveProperty(_key);
-            }
-        }
-
-        internal static ITagger<TTag> Create(
-            object key, 
-            PropertyCollection propertyCollection,
-            Func<ITagger<TTag>> createFunc)
-        {
-            CountedTagger<TTag> countedTagger;
-            if (propertyCollection.TryGetPropertySafe(key, out countedTagger))
-            {
-                countedTagger._count++;
-                return countedTagger;
-            }
-
-            countedTagger = new CountedTagger<TTag>(createFunc(), key, propertyCollection);
-            propertyCollection[key] = countedTagger;
-            return countedTagger;
+            _countedValue.Release();
         }
 
         #region ITagger<TTag>
 
         IEnumerable<ITagSpan<TTag>> ITagger<TTag>.GetTags(NormalizedSnapshotSpanCollection col)
         {
-            return _tagger.GetTags(col);
+            return Tagger.GetTags(col);
         }
 
         event EventHandler<SnapshotSpanEventArgs> ITagger<TTag>.TagsChanged
         {
-            add { _tagger.TagsChanged += value; }
-            remove { _tagger.TagsChanged -= value; }
+            add { Tagger.TagsChanged += value; }
+            remove { Tagger.TagsChanged -= value; }
         }
 
         #endregion

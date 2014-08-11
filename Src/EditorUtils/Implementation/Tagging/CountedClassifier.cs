@@ -13,57 +13,24 @@ namespace EditorUtils.Implementation.Tagging
     /// </summary>
     internal sealed class CountedClassifier : IClassifier, IDisposable
     {
-        private readonly IClassifier _classifier;
-        private readonly object _key;
-        private readonly PropertyCollection _propertyCollection;
-        private int _count;
+        private readonly CountedValue<IClassifier> _countedValue;
 
         internal IClassifier Classifier
         {
-            get { return _classifier; }
+            get { return _countedValue.Value; }
         }
 
         internal CountedClassifier(
-            IClassifier classifier,
+            PropertyCollection propertyCollection,
             object key,
-            PropertyCollection propertyCollection)
+            Func<IClassifier> createFunc)
         {
-            _classifier = classifier;
-            _key = key;
-            _propertyCollection = propertyCollection;
-            _count = 1;
+            _countedValue = CountedValue<IClassifier>.GetOrCreate(propertyCollection, key, createFunc);
         }
 
         internal void Dispose()
         {
-            _count--;
-
-            if (_count == 0)
-            {
-                var disposable = _classifier as IDisposable;
-                if (disposable != null)
-                {
-                    disposable.Dispose();
-                }
-                _propertyCollection.RemoveProperty(_key);
-            }
-        }
-
-        internal static IClassifier Create(
-            object key, 
-            PropertyCollection propertyCollection,
-            Func<IClassifier> createFunc)
-        {
-            CountedClassifier countedClassifier;
-            if (propertyCollection.TryGetPropertySafe(key, out countedClassifier))
-            {
-                countedClassifier._count++;
-                return countedClassifier;
-            }
-
-            countedClassifier = new CountedClassifier(createFunc(), key, propertyCollection);
-            propertyCollection[key] = countedClassifier;
-            return countedClassifier;
+            _countedValue.Release();
         }
 
         #region IDisposable
@@ -79,14 +46,14 @@ namespace EditorUtils.Implementation.Tagging
 
         event EventHandler<ClassificationChangedEventArgs> IClassifier.ClassificationChanged
         {
-            add { _classifier.ClassificationChanged += value; }
-            remove { _classifier.ClassificationChanged -= value; }
+            add { Classifier.ClassificationChanged += value; }
+            remove { Classifier.ClassificationChanged -= value; }
         }
 
 
         IList<ClassificationSpan> IClassifier.GetClassificationSpans(SnapshotSpan span)
         {
-            return _classifier.GetClassificationSpans(span);
+            return Classifier.GetClassificationSpans(span);
         }
 
         #endregion
