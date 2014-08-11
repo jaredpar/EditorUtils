@@ -32,7 +32,7 @@ namespace Cats
                 return null;
             }
 
-            var tagger = EditorUtilsFactory.CreateTagger(
+            var tagger = EditorUtilsFactory.CreateTagger<string, TextMarkerTag>(
                 textView.Properties,
                 _key,
                 () => new CatTagger(textView));
