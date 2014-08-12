@@ -11,12 +11,12 @@ using Microsoft.VisualStudio.Utilities;
 
 namespace EditorUtils.UnitTest
 {
-    public abstract class EditorHostTest
+    public abstract class EditorHostTest : IDisposable
     {
-        [ThreadStatic]
         private static EditorHost EditorHostCache;
 
         private readonly EditorHost _editorHost;
+        private readonly TestableSynchronizationContext _synchronizationContext;
 
         public EditorHost EditorHost
         {
@@ -83,9 +83,21 @@ namespace EditorUtils.UnitTest
             get { return _editorHost.BasicUndoHistoryRegistry; }
         }
 
+        public TestableSynchronizationContext TestableSynchronizationContext
+        {
+            get { return _synchronizationContext; }
+        }
+
         public EditorHostTest()
         {
             _editorHost = GetOrCreateEditorHost();
+            _synchronizationContext = new TestableSynchronizationContext();
+            _synchronizationContext.Install();
+        }
+
+        protected virtual void Dispose()
+        {
+            _synchronizationContext.Uninstall();
         }
 
         private EditorHost GetOrCreateEditorHost()
@@ -131,6 +143,11 @@ namespace EditorUtils.UnitTest
         public IContentType GetOrCreateContentType(string type, string baseType)
         {
             return _editorHost.GetOrCreateContentType(type, baseType);
+        }
+
+        void IDisposable.Dispose()
+        {
+            Dispose();
         }
     }
 }

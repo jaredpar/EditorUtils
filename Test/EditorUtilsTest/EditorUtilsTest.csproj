@@ -84,8 +84,8 @@
     <Compile Include="TaggerCommonTest.cs" />
     <Compile Include="TaggerUtilTest.cs" />
     <Compile Include="TestUtils.cs" />
-    <Compile Include="Utils\TestableSynchronizationContext.cs" />
-    <Compile Include="Utils\TextBasicTagger.cs" />
+    <Compile Include="TestableSynchronizationContext.cs" />
+    <Compile Include="TextTaggerSource.cs" />
     <Compile Include="VersioningTest.cs" />
   </ItemGroup>
   <ItemGroup>
