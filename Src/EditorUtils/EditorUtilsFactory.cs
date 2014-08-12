@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.Utilities;
 using Microsoft.VisualStudio.Text;
 using System.Collections.Generic;
 using EditorUtils.Implementation.Utilities;
+using Microsoft.VisualStudio.Text.Classification;
 
 namespace EditorUtils
 {
@@ -16,51 +17,74 @@ namespace EditorUtils
     /// </summary>
     public static class EditorUtilsFactory
     {
-        private static readonly object _adhocOutlinerKey = new object();
-        private static readonly object _adhocOutlinerTaggerKey = new object();
-
         /// <summary>
         /// Create an ITagger implementation for the IAsyncTaggerSource.
         /// </summary>
-        public static ITagger<TTag> CreateAsyncTaggerRaw<TData, TTag>(IAsyncTaggerSource<TData, TTag> asyncTaggerSource)
+        public static ITagger<TTag> CreateTaggerRaw<TData, TTag>(IAsyncTaggerSource<TData, TTag> asyncTaggerSource)
             where TTag : ITag
         {
             return new AsyncTagger<TData, TTag>(asyncTaggerSource);
         }
-
-        /// <summary>
-        /// Create an ITagger implementation for the IAsyncTaggerSource.  This instance will be a counted 
-        /// wrapper over the single IAsyncTaggerSource represented by the specified key
-        /// </summary>
-        public static ITagger<TTag> CreateAsyncTagger<TData, TTag>(PropertyCollection propertyCollection, object key, Func<IAsyncTaggerSource<TData, TTag>> createFunc)
-            where TTag : ITag
-        {
-            return CountedTagger<TTag>.Create(
-                key,
-                propertyCollection,
-                () => new AsyncTagger<TData, TTag>(createFunc()));
-        }
-
+        
         /// <summary>
         /// Create an ITagger implementation for the IBasicTaggerSource
         /// </summary>
-        public static ITagger<TTag> CreateBasicTaggerRaw<TTag>(IBasicTaggerSource<TTag> basicTaggerSource)
+        public static ITagger<TTag> CreateTaggerRaw<TTag>(IBasicTaggerSource<TTag> basicTaggerSource)
             where TTag : ITag
         {
             return new BasicTagger<TTag>(basicTaggerSource);
         }
 
         /// <summary>
+        /// Create an ITagger implementation for the IAsyncTaggerSource.  This instance will be a counted 
+        /// wrapper over the single IAsyncTaggerSource represented by the specified key
+        /// </summary>
+        public static ITagger<TTag> CreateTagger<TData, TTag>(PropertyCollection propertyCollection, object key, Func<IAsyncTaggerSource<TData, TTag>> createFunc)
+            where TTag : ITag
+        {
+            return new CountedTagger<TTag>(
+                propertyCollection,
+                key,
+                () => new AsyncTagger<TData, TTag>(createFunc()));
+        }
+
+        /// <summary>
         /// Create an ITagger implementation for the IBasicTaggerSource.  This instance will be a counted
         /// wrapper over the single IBasicTaggerSource represented by the specified key
         /// </summary>
-        public static ITagger<TTag> CreateBasicTagger<TTag>(PropertyCollection propertyCollection, object key, Func<IBasicTaggerSource<TTag>> createFunc)
+        public static ITagger<TTag> CreateTagger<TTag>(PropertyCollection propertyCollection, object key, Func<IBasicTaggerSource<TTag>> createFunc)
             where TTag : ITag
         {
-            return CountedTagger<TTag>.Create(
-                key,
+            return new CountedTagger<TTag>(
                 propertyCollection,
+                key,
                 () => new BasicTagger<TTag>(createFunc()));
+        }
+
+        public static IClassifier CreateClassifierRaw(IBasicTaggerSource<IClassificationTag> basicTaggerSource)
+        {
+            return new Classifier(CreateTaggerRaw(basicTaggerSource));
+        }
+
+        public static IClassifier CreateClassifierRaw<TData>(IAsyncTaggerSource<TData, IClassificationTag> asyncTaggerSource)
+        {
+            return new Classifier(CreateTaggerRaw(asyncTaggerSource));
+        }
+
+        public static IClassifier CreateClassifier(PropertyCollection propertyCollection, object key, Func<IBasicTaggerSource<IClassificationTag>> createFunc)
+        {
+            return new CountedClassifier(
+                propertyCollection,
+                key,
+                () => CreateClassifierRaw(createFunc()));
+        }
+
+        public static IClassifier CreateClassifier<TData>(PropertyCollection propertyCollection, object key, Func<IAsyncTaggerSource<TData, IClassificationTag>> createFunc)
+        {
+            return new CountedClassifier(
+                propertyCollection,
+                key,
+                () => CreateClassifierRaw(createFunc()));
         }
 
         public static IBasicUndoHistoryRegistry CreateBasicUndoHistoryRegistry()
@@ -94,15 +118,15 @@ namespace EditorUtils
         /// </summary>
         public static ITagger<OutliningRegionTag> CreateOutlinerTagger(ITextBuffer textBuffer)
         {
-            return EditorUtilsFactory.CreateBasicTagger(
+            return CreateTagger(
                 textBuffer.Properties,
-                _adhocOutlinerTaggerKey,
+                AdhocOutliner.OutlinerTaggerKey,
                 () => GetOrCreateOutlinerCore(textBuffer));
         }
 
         private static AdhocOutliner GetOrCreateOutlinerCore(ITextBuffer textBuffer)
         {
-            return textBuffer.Properties.GetOrCreateSingletonProperty(_adhocOutlinerKey, () => new AdhocOutliner(textBuffer));
+            return textBuffer.Properties.GetOrCreateSingletonProperty(AdhocOutliner.OutlinerKey, () => new AdhocOutliner(textBuffer));
         }
     }
 }

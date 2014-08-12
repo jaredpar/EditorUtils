@@ -8,7 +8,7 @@ namespace EditorUtils.Implementation.Utilities
     /// been visited for a given larger LineRange.  The order in which, or original granualarity
     /// of visits is less important than the overall range which is visited.  
     /// 
-    /// For exmaple if both ranges 1-3 and 2-5 are visited then the collection will only record
+    /// For example if both ranges 1-3 and 2-5 are visited then the collection will only record
     /// that 1-5 is visited. 
     /// </summary>
     internal sealed class NormalizedLineRangeCollection : IEnumerable<LineRange>

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 
-namespace EditorUtils.UnitTest.Utils
+namespace EditorUtils.UnitTest
 {
     public sealed class TestableSynchronizationContext : SynchronizationContext
     {

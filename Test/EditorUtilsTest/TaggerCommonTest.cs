@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using EditorUtils.Implementation.Tagging;
-using EditorUtils.UnitTest.Utils;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
@@ -249,8 +248,9 @@ namespace EditorUtils.UnitTest
         protected ITextView _textView;
         protected List<SnapshotSpan> _tagsChangedList;
 
-        public void Dispose()
+        protected override void Dispose()
         {
+            base.Dispose();
             _synchronizationContext.Uninstall();
         }
 

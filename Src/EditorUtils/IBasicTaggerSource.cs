@@ -9,11 +9,6 @@ namespace EditorUtils
         where TTag : ITag
     {
         /// <summary>
-        /// The current ITextSnaphot for the buffer
-        /// </summary>
-        ITextSnapshot TextSnapshot { get; }
-
-        /// <summary>
         /// Get the tags for the given SnapshotSpan
         /// </summary>
         ReadOnlyCollection<ITagSpan<TTag>> GetTags(SnapshotSpan span);

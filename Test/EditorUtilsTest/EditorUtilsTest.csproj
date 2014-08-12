@@ -62,10 +62,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AdhocOutlinerTest.cs" />
     <Compile Include="AsyncTaggerTest.cs" />
     <Compile Include="BasicTaggerTest.cs" />
     <Compile Include="BasicUndoHistoryTest.cs" />
     <Compile Include="ChannelTest.cs" />
+    <Compile Include="ClassifierTest.cs" />
+    <Compile Include="CountedClassifierTest.cs" />
     <Compile Include="CountedTaggerTest.cs" />
     <Compile Include="EditorHostTest.cs" />
     <Compile Include="Extensions.cs" />
@@ -82,7 +85,8 @@
     <Compile Include="TaggerCommonTest.cs" />
     <Compile Include="TaggerUtilTest.cs" />
     <Compile Include="TestUtils.cs" />
-    <Compile Include="Utils\TestableSynchronizationContext.cs" />
+    <Compile Include="TestableSynchronizationContext.cs" />
+    <Compile Include="TextTaggerSource.cs" />
     <Compile Include="VersioningTest.cs" />
   </ItemGroup>
   <ItemGroup>

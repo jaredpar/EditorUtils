@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EditorUtils.Implementation.Tagging;
-using EditorUtils.UnitTest.Utils;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
@@ -15,7 +14,7 @@ using AsyncTaggerType = EditorUtils.Implementation.Tagging.AsyncTagger<string, M
 
 namespace EditorUtils.UnitTest
 {
-    public abstract class AsyncTaggerTest : EditorHostTest, IDisposable
+    public abstract class AsyncTaggerTest : EditorHostTest
     {
         #region TestableAsyncTaggerSource
 
@@ -173,7 +172,6 @@ namespace EditorUtils.UnitTest
 
         internal readonly MockFactory _mockFactory;
         protected ITextBuffer _textBuffer;
-        protected TestableSynchronizationContext _synchronizationContext;
         protected TestableAsyncTaggerSource _asyncTaggerSource;
         internal AsyncTagger<string, TextMarkerTag> _asyncTagger;
         protected ITagger<TextMarkerTag> _asyncTaggerInterface;
@@ -188,27 +186,9 @@ namespace EditorUtils.UnitTest
             _mockFactory = new MockFactory();
         }
 
-        public void Dispose()
-        {
-            if (_synchronizationContext != null)
-            {
-                _synchronizationContext.Uninstall();
-            }
-
-            var disposable = _asyncTagger as IDisposable;
-            if (disposable != null)
-            {
-                disposable.Dispose();
-            }
-        }
-
         protected void Create(params string[] lines)
         {
             _textBuffer = EditorHost.CreateTextBuffer(lines);
-
-            // Setup a sychronization context we can control
-            _synchronizationContext = new TestableSynchronizationContext();
-            _synchronizationContext.Install();
 
             _asyncTaggerSource = new TestableAsyncTaggerSource(_textBuffer);
             _asyncTagger = new AsyncTagger<string, TextMarkerTag>(_asyncTaggerSource);
@@ -285,6 +265,11 @@ namespace EditorUtils.UnitTest
             return tags;
         }
 
+        protected void WaitForBackgroundToComplete()
+        {
+            _asyncTagger.WaitForBackgroundToComplete(TestableSynchronizationContext);
+        }
+
         internal AsyncTaggerType.AsyncBackgroundRequest CreateAsyncBackgroundRequest(
             SnapshotSpan span,
             CancellationTokenSource cancellationTokenSource,
@@ -304,15 +289,6 @@ namespace EditorUtils.UnitTest
         internal void SetTagCache(AsyncTaggerType.TrackingCacheData trackingCacheData)
         {
             _asyncTagger.TagCacheData = new AsyncTaggerType.TagCache(null, trackingCacheData);
-        }
-
-        internal void WaitForBackgroundToComplete()
-        {
-            while (_asyncTagger.AsyncBackgroundRequestData.HasValue)
-            {
-                _synchronizationContext.RunAll();
-                Thread.Yield();
-            }
         }
 
         public sealed class DidTagsChangeTest : AsyncTaggerTest
@@ -397,7 +373,7 @@ namespace EditorUtils.UnitTest
                 var tags = _asyncTagger.GetTags(EntireBufferSpan).ToList();
                 Assert.Equal(1, tags.Count);
                 Assert.Equal(_textBuffer.GetSpan(0, 1), tags[0].Span);
-                Assert.True(_synchronizationContext.IsEmpty);
+                Assert.True(TestableSynchronizationContext.IsEmpty);
                 Assert.True(_asyncTagger.TagCacheData.IsEmpty);
             }
 
@@ -882,7 +858,7 @@ namespace EditorUtils.UnitTest
                 _asyncTagger.GetTags(_textBuffer.GetLineRange(3).Extent);
 
                 // Clear the queue, the missing work will be seen and immedieatly requeued
-                _synchronizationContext.RunAll();
+                TestableSynchronizationContext.RunAll();
                 Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
                 WaitForBackgroundToComplete();
 
@@ -915,7 +891,7 @@ namespace EditorUtils.UnitTest
                 // The background will try to post twice (once for progress and the other for complete)
                 for (int i = 0; i < 2; i++)
                 {
-                    _synchronizationContext.RunOne();
+                    TestableSynchronizationContext.RunOne();
                     Assert.True(_asyncTagger.AsyncBackgroundRequestData.HasValue);
                     Assert.Equal(tokenSource, _asyncTagger.AsyncBackgroundRequestData.Value.CancellationTokenSource);
                 }
@@ -959,7 +935,7 @@ namespace EditorUtils.UnitTest
                 _asyncTagger.AsyncBackgroundRequestData.Value.Task.Wait();
 
                 // The visible lines will finish first and post.  Let only this one go through
-                _synchronizationContext.RunOne();
+                TestableSynchronizationContext.RunOne();
                 var tags = _asyncTagger.GetTags(_textBuffer.GetExtent());
                 Assert.Equal(
                     new[] { _textBuffer.GetLineSpan(2, 3) }, 

@@ -28,7 +28,7 @@ namespace WordUnderCaret
                 return null;
             }
 
-            var tagger = EditorUtilsFactory.CreateAsyncTagger<string, TextMarkerTag>(
+            var tagger = EditorUtilsFactory.CreateTagger(
                 textView.Properties,
                 _key,
                 () => new WordUnderCaretTagger(textView));
