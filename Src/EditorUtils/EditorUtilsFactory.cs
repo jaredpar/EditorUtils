@@ -17,9 +17,6 @@ namespace EditorUtils
     /// </summary>
     public static class EditorUtilsFactory
     {
-        private static readonly object _adhocOutlinerKey = new object();
-        private static readonly object _adhocOutlinerTaggerKey = new object();
-
         /// <summary>
         /// Create an ITagger implementation for the IAsyncTaggerSource.
         /// </summary>
@@ -121,15 +118,15 @@ namespace EditorUtils
         /// </summary>
         public static ITagger<OutliningRegionTag> CreateOutlinerTagger(ITextBuffer textBuffer)
         {
-            return EditorUtilsFactory.CreateTagger(
+            return CreateTagger(
                 textBuffer.Properties,
-                _adhocOutlinerTaggerKey,
+                AdhocOutliner.OutlinerTaggerKey,
                 () => GetOrCreateOutlinerCore(textBuffer));
         }
 
         private static AdhocOutliner GetOrCreateOutlinerCore(ITextBuffer textBuffer)
         {
-            return textBuffer.Properties.GetOrCreateSingletonProperty(_adhocOutlinerKey, () => new AdhocOutliner(textBuffer));
+            return textBuffer.Properties.GetOrCreateSingletonProperty(AdhocOutliner.OutlinerKey, () => new AdhocOutliner(textBuffer));
         }
     }
 }

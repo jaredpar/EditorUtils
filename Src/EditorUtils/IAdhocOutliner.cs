@@ -1,11 +1,27 @@
 ﻿using System;
-using System.Collections.Generic;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Tagging;
 using System.Collections.ObjectModel;
 
 namespace EditorUtils
 {
+    public struct OutliningRegion
+    {
+        public readonly OutliningRegionTag Tag;
+        public readonly SnapshotSpan Span;
+        public readonly int Cookie;
+
+        public OutliningRegion(
+            OutliningRegionTag tag,
+            SnapshotSpan span,
+            int cookie)
+        {
+            Tag = tag;
+            Span = span;
+            Cookie = cookie;
+        }
+    }
+
     /// <summary>
     /// Allows callers to create outlining regions over arbitrary SnapshotSpan values
     /// </summary>
@@ -19,13 +35,13 @@ namespace EditorUtils
         /// <summary>
         /// Get all of the regions in the given ITextSnapshot
         /// </summary>
-        ReadOnlyCollection<ITagSpan<OutliningRegionTag>> GetRegions(SnapshotSpan span);
+        ReadOnlyCollection<OutliningRegion> GetOutliningRegions(SnapshotSpan span);
 
         /// <summary>
         /// Create an outlining region over the given SnapshotSpan.  The int value returned is 
         /// a cookie for later deleting the region
         /// </summary>
-        int CreateOutliningRegion(SnapshotSpan span, string text, string hint);
+        OutliningRegion CreateOutliningRegion(SnapshotSpan span, SpanTrackingMode spanTrackingMode, string text, string hint);
 
         /// <summary>
         /// Delete the previously created outlining region with the given cookie
