@@ -1,5 +1,6 @@
 param ( [switch]$push = $false, 
-        [switch]$fast = $false)
+        [switch]$fast = $false,
+        [switch]$skipTests = $false)
 $script:scriptPath = split-path -parent $MyInvocation.MyCommand.Definition 
 pushd $scriptPath
 
@@ -43,13 +44,17 @@ function test-unittests() {
     $xunit = join-path $scriptPath "Tools\xunit.console.clr4.x86.exe"
     $resultFilePath = "Deploy\xunit.xml"
 
+    if ($script:skipTests) { 
+        return
+    }
+
     write-host -NoNewLine "`tRunning Unit Tests: "
     foreach ($file in $all) { 
         $name = split-path -leaf $file
         & $xunit $file /silent /xml $resultFilePath | out-null
         if (-not (test-return)) { 
             write-host "FAILED!!!"
-            write-host (gc $resultFilePath)
+            & notepad $resultFilePath
         }
         else { 
             write-host "passed"
