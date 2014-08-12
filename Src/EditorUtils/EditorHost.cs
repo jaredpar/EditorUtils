@@ -14,6 +14,7 @@ using Microsoft.VisualStudio.Text.Projection;
 using Microsoft.VisualStudio.Utilities;
 using Microsoft.Win32;
 using System.IO;
+using Microsoft.VisualStudio.Text.Classification;
 
 namespace EditorUtils
 {
@@ -37,6 +38,7 @@ namespace EditorUtils
         private IContentTypeRegistryService _contentTypeRegistryService;
         private IProtectedOperations _protectedOperations;
         private IBasicUndoHistoryRegistry _basicUndoHistoryRegistry;
+        private IClassificationTypeRegistryService _classificationTypeRegistryService;
 
         public CompositionContainer CompositionContainer
         {
@@ -103,6 +105,11 @@ namespace EditorUtils
             get { return _basicUndoHistoryRegistry; }
         }
 
+        public IClassificationTypeRegistryService ClassificationTypeRegistryService
+        {
+            get { return _classificationTypeRegistryService; }
+        }
+
         public EditorHost(CompositionContainer compositionContainer)
         {
             _compositionContainer = compositionContainer;
@@ -116,6 +123,7 @@ namespace EditorUtils
             _outliningManagerService = _compositionContainer.GetExportedValue<IOutliningManagerService>();
             _textBufferUndoManagerProvider = _compositionContainer.GetExportedValue<ITextBufferUndoManagerProvider>();
             _contentTypeRegistryService = _compositionContainer.GetExportedValue<IContentTypeRegistryService>();
+            _classificationTypeRegistryService = _compositionContainer.GetExportedValue<IClassificationTypeRegistryService>();
 
             var errorHandlers = _compositionContainer.GetExportedValues<IExtensionErrorHandler>();
             _protectedOperations = EditorUtilsFactory.CreateProtectedOperations(errorHandlers);

@@ -66,6 +66,7 @@
     <Compile Include="BasicTaggerTest.cs" />
     <Compile Include="BasicUndoHistoryTest.cs" />
     <Compile Include="ChannelTest.cs" />
+    <Compile Include="ClassifierTest.cs" />
     <Compile Include="CountedClassifierTest.cs" />
     <Compile Include="CountedTaggerTest.cs" />
     <Compile Include="EditorHostTest.cs" />
@@ -84,6 +85,7 @@
     <Compile Include="TaggerUtilTest.cs" />
     <Compile Include="TestUtils.cs" />
     <Compile Include="Utils\TestableSynchronizationContext.cs" />
+    <Compile Include="Utils\TextBasicTagger.cs" />
     <Compile Include="VersioningTest.cs" />
   </ItemGroup>
   <ItemGroup>

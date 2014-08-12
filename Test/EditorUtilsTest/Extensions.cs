@@ -5,6 +5,7 @@ using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
 using EditorUtils.Implementation.Tagging;
+using Microsoft.VisualStudio.Text.Classification;
 
 namespace EditorUtils.UnitTest
 {
@@ -144,5 +145,20 @@ namespace EditorUtils.UnitTest
         }
 
         #endregion
+
+        #region IClassificationTypeRegistryService
+
+        public static IClassificationType GetOrCreateClassificationType(this IClassificationTypeRegistryService classificationTypeRegistryService, string type)
+        {
+            var classificationType = classificationTypeRegistryService.GetClassificationType(type);
+            if (classificationType == null)
+            {
+                classificationType = classificationTypeRegistryService.CreateClassificationType(type, new IClassificationType[] { });
+            }
+
+            return classificationType;
+        }
+
+        #endregion 
     }
 }
