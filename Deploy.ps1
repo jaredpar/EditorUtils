@@ -38,17 +38,34 @@ function build-release() {
     check-return
 }
 
+# Check to see if the given version of Visual Studio is installed
+function test-vs-install() { 
+    param ([string]$version = $(throw "Need a version"))
+
+    $path = "hklm:\Software\Microsoft\VisualStudio\{0}" -f $version
+    $i = get-itemproperty $path InstallDir -ea SilentlyContinue | %{ $_.InstallDir }
+    return $i -ne $null
+}
+
 # Run all of the unit tests
 function test-unittests() { 
+    param ([string]$vsVersion = $(throw "Need a VS version"))
+
+    write-host -NoNewLine "`tRunning Unit Tests: "
+    if ($script:skipTests) { 
+        write-host "skipped"
+        return
+    }
+
+    if (-not (test-vs-install $vsVersion)) { 
+        write-host "skipped (VS missing)"
+        return
+    }
+
     $all = "Test\EditorUtilsTest\bin\Release\EditorUtils.UnitTest.dll"
     $xunit = join-path $scriptPath "Tools\xunit.console.clr4.x86.exe"
     $resultFilePath = "Deploy\xunit.xml"
 
-    if ($script:skipTests) { 
-        return
-    }
-
-    write-host -NoNewLine "`tRunning Unit Tests: "
     foreach ($file in $all) { 
         $name = split-path -leaf $file
         & $xunit $file /silent /xml $resultFilePath | out-null
@@ -118,6 +135,7 @@ function invoke-nuget() {
 function deploy-version() { 
     param (
         [string]$editorVersion = $(throw "Need a version number"),
+        [string]$vsVersion = $(throw "Need a VS version"),
         [string]$suffix = $(throw "Need a file suffix"))
 
     write-host "Deploying $editorVersion"
@@ -137,7 +155,7 @@ function deploy-version() {
     $version = get-version
 
     # Next run the tests
-    test-unittests
+    test-unittests $vsVersion
 
     # Now do the NuGet work 
     invoke-nuget $version $suffix
@@ -163,12 +181,12 @@ if (-not (test-path $nuget)) {
 }
 
 if ($fast) {
-    deploy-version "Vs2010" ""
+    deploy-version "Vs2010" "10.0" ""
 }
 else { 
-    deploy-version "Vs2010" ""
-    deploy-version "Vs2012" "2012"
-    deploy-version "Vs2013" "2013"
+    deploy-version "Vs2010" "10.0" ""
+    deploy-version "Vs2012" "11.0" "2012" 
+    deploy-version "Vs2013" "12.0" "2013"
 }
 
 rm env:\SolutionDir
