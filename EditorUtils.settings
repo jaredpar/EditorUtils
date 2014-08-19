@@ -15,6 +15,7 @@
 
   <PropertyGroup Condition=" '$(EditorVersion)' == '' Or '$(EditorVersion)' == 'Vs2010' ">
     <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2010</ReferencePath>
+    <EditorSuffix>2010</EditorSuffix>
     <EditorAssemblyVersion>10.0.0.0</EditorAssemblyVersion>
     <EditorFrameworkVersion>4.0</EditorFrameworkVersion>
     <DefineConstants>$(DefineConstants);VS2010</DefineConstants>
@@ -22,6 +23,7 @@
 
   <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2012'">
     <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2012</ReferencePath>
+    <EditorSuffix>2012</EditorSuffix>
     <EditorAssemblyVersion>11.0.0.0</EditorAssemblyVersion>
     <EditorFrameworkVersion>4.5</EditorFrameworkVersion>
     <DefineConstants>$(DefineConstants);VS2012</DefineConstants>
@@ -29,6 +31,7 @@
 
   <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2013'">
     <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2013</ReferencePath>
+    <EditorSuffix>2013</EditorSuffix>
     <EditorAssemblyVersion>12.0.0.0</EditorAssemblyVersion>
     <EditorFrameworkVersion>4.5</EditorFrameworkVersion>
     <DefineConstants>$(DefineConstants);VS2013</DefineConstants>

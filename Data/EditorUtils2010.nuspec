@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <package >
   <metadata>
-    <id>EditorUtils</id>
+    <id>EditorUtils2010</id>
     <version>$version$</version>
-    <title>EditorUtils</title>
+    <title>EditorUtils 2010</title>
     <authors>JaredPar</authors>
     <owners>JaredPar</owners>
     <licenseUrl>http://www.apache.org/licenses/LICENSE-2.0</licenseUrl>

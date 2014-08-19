@@ -116,8 +116,9 @@ function invoke-nuget() {
     }
     mkdir $libPath | out-null
 
-    copy Src\EditorUtils\bin\Release\EditorUtils.dll (join-path $libPath "EditorUtils$($suffix).dll")
-    copy Src\EditorUtils\bin\Release\EditorUtils.pdb (join-path $libPath "EditorUtils$($suffix).pdb")
+    $fileName = "EditorUtils$($suffix)"
+    copy "Src\EditorUtils\bin\Release\$($fileName).dll" (join-path $libPath "$($fileName).dll")
+    copy "Src\EditorUtils\bin\Release\$($fileName).pdb" (join-path $libPath "$($fileName).pdb")
 
     $nuspecFilePath = join-path "Data" "EditorUtils$($suffix).nuspec"
     & $nuget pack $nuspecFilePath -Symbols -Version $version -BasePath $scratchPath -OutputDirectory $outputPath | out-null
@@ -135,9 +136,9 @@ function invoke-nuget() {
 function deploy-version() { 
     param (
         [string]$editorVersion = $(throw "Need a version number"),
-        [string]$vsVersion = $(throw "Need a VS version"),
-        [string]$suffix = $(throw "Need a file suffix"))
+        [string]$vsVersion = $(throw "Need a VS version"))
 
+    $suffix = $editorVersion.Substring(2)
     write-host "Deploying $editorVersion"
 
     # First clean the projects
@@ -181,12 +182,12 @@ if (-not (test-path $nuget)) {
 }
 
 if ($fast) {
-    deploy-version "Vs2010" "10.0" ""
+    deploy-version "Vs2010" "10.0"
 }
 else { 
-    deploy-version "Vs2010" "10.0" ""
-    deploy-version "Vs2012" "11.0" "2012" 
-    deploy-version "Vs2013" "12.0" "2013"
+    deploy-version "Vs2010" "10.0"
+    deploy-version "Vs2012" "11.0" 
+    deploy-version "Vs2013" "12.0"
 }
 
 rm env:\SolutionDir
