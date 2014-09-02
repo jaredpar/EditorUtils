@@ -148,8 +148,6 @@ namespace EditorUtils
                 throw new Exception("Unable to calculate the version of Visual Studio installed on the machine");
             }
 
-            Console.WriteLine("Version = {0}", version);
-            Console.WriteLine("Install Directory = {0}", installDirectory);
             if (!TryLoadInteropAssembly(installDirectory))
             {
                 var message = string.Format("Unable to load the interop assemblies.  Install directory is: ", installDirectory);
