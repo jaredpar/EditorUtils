@@ -2,13 +2,16 @@
 using Microsoft.VisualStudio.Text.Editor;
 using System;
 using EditorUtils.Implementation.BasicUndo;
+using Moq;
+using Microsoft.VisualStudio.Text.Operations;
 
 namespace EditorUtils.UnitTest
 {
     public abstract class BasicUndoHistoryTest
     {
-        protected readonly object _context;
-        protected readonly IBasicUndoHistory _basicUndoHistory;
+        private readonly object _context;
+        private readonly IBasicUndoHistory _basicUndoHistory;
+        private readonly MockRepository _factory;
         internal readonly BasicUndoHistory _basicUndoHistoryRaw;
 
         public BasicUndoHistoryTest()
@@ -16,6 +19,7 @@ namespace EditorUtils.UnitTest
             _context = new object();
             _basicUndoHistoryRaw = new BasicUndoHistory(_context);
             _basicUndoHistory = _basicUndoHistoryRaw;
+            _factory = new MockRepository(MockBehavior.Loose);
         }
 
         public sealed class ClearTest : BasicUndoHistoryTest
@@ -83,6 +87,61 @@ namespace EditorUtils.UnitTest
 
                 Assert.Null(_basicUndoHistory.CurrentTransaction);
 
+            }
+        }
+
+        public sealed class UndoRedoTest : BasicUndoHistoryTest
+        {
+            /// <summary>
+            /// The implementation should match the WPF editor and not throw when Undo called when there
+            /// are no Undo operations
+            /// </summary>
+            [Fact]
+            public void EmptyUndo()
+            {
+                _basicUndoHistory.Undo(1);
+                _basicUndoHistory.Undo(100);
+            }
+
+            [Fact]
+            public void SimpleUndo()
+            {
+                var undoCount = 0;
+                using (var transaction = _basicUndoHistory.CreateTransaction("test"))
+                {
+                    var primitive = _factory.Create<ITextUndoPrimitive>(MockBehavior.Strict);
+                    primitive.Setup(x => x.Undo()).Callback(() => { undoCount++; });
+                    transaction.AddUndo(primitive.Object);
+                    transaction.Complete();
+                }
+
+                _basicUndoHistory.Undo(1);
+                Assert.Equal(1, undoCount);
+            }
+
+            [Fact]
+            public void EmptyRedo()
+            {
+                _basicUndoHistory.Redo(1);
+                _basicUndoHistory.Redo(100);
+            }
+
+            [Fact]
+            public void SimpleRedo()
+            {
+                var doCount = 0;
+                using (var transaction = _basicUndoHistory.CreateTransaction("test"))
+                {
+                    var primitive = _factory.Create<ITextUndoPrimitive>(MockBehavior.Strict);
+                    primitive.Setup(x => x.Undo());
+                    primitive.Setup(x => x.Do()).Callback(() => { doCount++; });
+                    transaction.AddUndo(primitive.Object);
+                    transaction.Complete();
+                }
+
+                _basicUndoHistory.Undo(1);
+                _basicUndoHistory.Redo(1);
+                Assert.Equal(1, doCount);
             }
         }
     }

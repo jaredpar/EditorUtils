@@ -57,6 +57,7 @@ namespace EditorUtils.Implementation.BasicUndo
         {
             try
             {
+                count = Math.Min(_redoStack.Count, count);
                 _state = TextUndoHistoryState.Redoing;
                 for (var i = 0; i < count; i++)
                 {
@@ -78,6 +79,7 @@ namespace EditorUtils.Implementation.BasicUndo
         {
             try
             {
+                count = Math.Min(_undoStack.Count, count);
                 _state = TextUndoHistoryState.Undoing;
                 for (var i = 0; i < count; i++)
                 {
