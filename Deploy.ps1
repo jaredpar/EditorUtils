@@ -121,7 +121,7 @@ function invoke-nuget() {
     copy "Src\EditorUtils\bin\Release\$($fileName).pdb" (join-path $libPath "$($fileName).pdb")
 
     $nuspecFilePath = join-path "Data" "EditorUtils$($suffix).nuspec"
-    & $nuget pack $nuspecFilePath -Symbols -Version $version -BasePath $scratchPath -OutputDirectory $outputPath | out-null
+    & $nuget pack $nuspecFilePath -Version $version -BasePath $scratchPath -OutputDirectory $outputPath | out-null
     check-return
 
     if ($script:push) { 
