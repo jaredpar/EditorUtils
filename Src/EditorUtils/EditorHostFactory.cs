@@ -12,56 +12,21 @@ using Microsoft.Win32;
 
 namespace EditorUtils
 {
-    public sealed class EditorHostFactory
+    public sealed partial class EditorHostFactory
     {
-        #region UndoExportProvider
-
-        /// <summary>
-        /// In order to host the editor we need to provide an ITextUndoHistory export.  However 
-        /// we can't simply export it from the DLL because it would conflict with Visual Studio's
-        /// export of ITextUndoHistoryRegistry in the default scenario.  This ComposablePartCatalog
-        /// is simply here to hand export the type in the hosted scenario only
-        /// </summary>
-        private sealed class UndoExportProvider : ExportProvider
-        {
-            private readonly IBasicUndoHistoryRegistry _basicUndoHistoryRegistry;
-            private readonly string _textUndoHistoryRegistryContractName;
-            private readonly string _basicUndoHistoryRegistryContractName;
-            private readonly Export _export;
-
-            internal UndoExportProvider()
-            {
-                _textUndoHistoryRegistryContractName = AttributedModelServices.GetContractName(typeof(ITextUndoHistoryRegistry));
-                _basicUndoHistoryRegistryContractName = AttributedModelServices.GetContractName(typeof(IBasicUndoHistoryRegistry));
-                _basicUndoHistoryRegistry = EditorUtilsFactory.CreateBasicUndoHistoryRegistry();
-                _export = new Export(_textUndoHistoryRegistryContractName, () => _basicUndoHistoryRegistry);
-            }
-
-            protected override IEnumerable<Export> GetExportsCore(ImportDefinition definition, AtomicComposition atomicComposition)
-            {
-                if (definition.ContractName == _textUndoHistoryRegistryContractName ||
-                    definition.ContractName == _basicUndoHistoryRegistryContractName)
-                {
-                    yield return _export;
-                }
-            }
-        }
-
-        #endregion
-
         // Determine the minimum Visual Studio number that we should be probing for.  It is okay to 
         // find later versions because Visual Studio is back compat.  Using an earlier version does
         // not work though 
 #if VS2010 
-        private const int MinVisualStudioVersion = 10;
-#elif VS2012 
-        private const int MinVisualStudioVersion = 11;
-#elif VS2013 
-        private const int MinVisualStudioVersion = 12;
-#elif VS2015 
-        private const int MinVisualStudioVersion = 14;
+        private const EditorVersion GeneratedMinimumEditorVersion = EditorVersion.Vs2010;
+#elif VS2012
+        private const EditorVersion GeneratedMinimumEditorVersion = EditorVersion.Vs2012;
+#elif VS2013
+        private const EditorVersion GeneratedMinimumEditorVersion = EditorVersion.Vs2013;
+#elif VS2015
+        private const EditorVersion GeneratedMinimumEditorVersion = EditorVersion.Vs2015;
 #else
-        private const int MinVisualStudioVersion = 10;
+#error Unexpected build combination 
 #endif
 
         private static readonly string[] EditorComponents =
@@ -110,9 +75,22 @@ namespace EditorUtils
         private readonly List<ComposablePartCatalog> _composablePartCatalogList = new List<ComposablePartCatalog>();
         private readonly List<ExportProvider> _exportProviderList = new List<ExportProvider>();
 
-        public EditorHostFactory()
+        /// <summary>
+        /// The minimum <see cref="EditorVersion"/> value supported by this assembly. 
+        /// </summary>
+        public static EditorVersion MinimumEditorVersion
         {
-            AppendEditorCatalog(_composablePartCatalogList);
+            get { return GeneratedMinimumEditorVersion; }
+        }
+
+        public static EditorVersion MaxEditorVersion
+        {
+            get { return EditorVersion.Vs2015; }
+        }
+
+        public EditorHostFactory(EditorVersion? editorVersion = null)
+        {
+            AppendEditorCatalog(_composablePartCatalogList, editorVersion);
             _exportProviderList.Add(new UndoExportProvider());
         }
 
@@ -141,11 +119,11 @@ namespace EditorUtils
         /// Load the list of editor assemblies into the specified catalog list.  This method will
         /// throw on failure
         /// </summary>
-        private static void AppendEditorCatalog(List<ComposablePartCatalog> list)
+        private static void AppendEditorCatalog(List<ComposablePartCatalog> list, EditorVersion? editorVersion)
         {
             string version;
             string installDirectory;
-            if (!TryCalculateVersion(out version, out installDirectory))
+            if (!TryGetEditorInfo(editorVersion, out version, out installDirectory))
             {
                 throw new Exception("Unable to calculate the version of Visual Studio installed on the machine");
             }
@@ -167,27 +145,50 @@ namespace EditorUtils
             }
         }
 
+        private static bool TryGetEditorInfo(EditorVersion? editorVersion, out string fullVersion, out string installDirectory)
+        {
+            if (editorVersion.HasValue)
+            {
+                var shortVersion = GetShortVersionString(editorVersion.Value);
+                return TryGetEditorInfoCore(shortVersion, out fullVersion, out installDirectory);
+            }
+
+            return TryCalculateEditorInfo(out fullVersion, out installDirectory);
+        }
+
         /// <summary>
         /// Try and calculate the version of Visual Studio installed on this machine.  Need both the version
         /// and the install directory in order to load up the editor components for testing
         /// </summary>
-        private static bool TryCalculateVersion(out string version, out string installDirectory)
+        private static bool TryCalculateEditorInfo(out string fullVersion, out string installDirectory)
         {
             // The same pattern exists for all known versions of Visual Studio.  The editor was 
             // introduced in version 10 (VS2010).  The max of 20 is arbitrary and just meant to 
             // future proof this algorithm for some time into the future
-            for (int i = MinVisualStudioVersion; i < 20; i++)
+            var max = GetVersionNumber(MaxEditorVersion);
+            for (int i = GetVersionNumber(MinimumEditorVersion); i <= max; i++)
             {
                 var shortVersion = String.Format("{0}.0", i);
-                if (TryGetInstallDirectory(shortVersion, out installDirectory))
+                if (TryGetEditorInfoCore(shortVersion, out fullVersion, out installDirectory))
                 {
-                    version = String.Format("{0}.0.0.0", i);
                     return true;
                 }
             }
 
             installDirectory = null;
-            version = null;
+            fullVersion = null;
+            return false;
+        }
+
+        private static bool TryGetEditorInfoCore(string shortVersion, out string fullversion, out string installDirectory)
+        {
+            if (TryGetInstallDirectory(shortVersion, out installDirectory))
+            {
+                fullversion = string.Format("{0}.0.0", shortVersion);
+                return true;
+            }
+
+            fullversion = null;
             return false;
         }
 
@@ -195,11 +196,11 @@ namespace EditorUtils
         /// Try and get the installation directory for the specified version of Visual Studio.  This 
         /// will fail if the specified version of Visual Studio isn't installed
         /// </summary>
-        private static bool TryGetInstallDirectory(string version, out string installDirectory)
+        private static bool TryGetInstallDirectory(string shortVersion, out string installDirectory)
         {
             foreach (var skuKeyName in VisualStudioSkuKeyNames)
             {
-                if (TryGetInstallDirectory(skuKeyName, version, out installDirectory))
+                if (TryGetInstallDirectory(skuKeyName, shortVersion, out installDirectory))
                 {
                     return true;
                 }
@@ -213,11 +214,11 @@ namespace EditorUtils
         /// Try and get the installation directory for the specified SKU of Visual Studio.  This 
         /// will fail if the specified version of Visual Studio isn't installed
         /// </summary>
-        private static bool TryGetInstallDirectory(string skuKeyName, string version, out string installDirectory)
+        private static bool TryGetInstallDirectory(string skuKeyName, string shortVersion, out string installDirectory)
         {
             try
             {
-                var subKeyPath = String.Format(@"Software\Microsoft\{0}\{1}", skuKeyName, version);
+                var subKeyPath = String.Format(@"Software\Microsoft\{0}\{1}", skuKeyName, shortVersion);
                 using (var key = Registry.LocalMachine.OpenSubKey(subKeyPath, writable: false))
                 {
                     if (key != null)
@@ -275,6 +276,25 @@ namespace EditorUtils
             {
                 return false;
             }
+        }
+
+        internal static int GetVersionNumber(EditorVersion version)
+        {
+            switch (version)
+            {
+                case EditorVersion.Vs2010: return 10;
+                case EditorVersion.Vs2012: return 11;
+                case EditorVersion.Vs2013: return 12;
+                case EditorVersion.Vs2015: return 14;
+                default:
+                    throw new Exception(string.Format("Unexpected enum value {0}", version));
+            }
+        }
+
+        internal static string GetShortVersionString(EditorVersion version)
+        {
+            var number = GetVersionNumber(version);
+            return string.Format("{0}.0", number);
         }
     }
 }
