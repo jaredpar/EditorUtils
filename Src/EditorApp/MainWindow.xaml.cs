@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using EditorUtils;
 
 namespace EditorApp
 {
@@ -23,6 +24,16 @@ namespace EditorApp
         public MainWindow()
         {
             InitializeComponent();
+
+            var editorHostFactory = new EditorHostFactory(EditorVersion.Vs2015);
+            var editorHost = editorHostFactory.CreateEditorHost();
+
+            var textBuffer = editorHost.TextBufferFactoryService.CreateTextBuffer();
+            textBuffer.Insert(0, "Hello Editor");
+
+            var wpfTextView = editorHost.TextEditorFactoryService.CreateTextView(textBuffer);
+            var wpfTextViewHost = editorHost.TextEditorFactoryService.CreateTextViewHost(wpfTextView, setFocus: true);
+            Content = wpfTextViewHost.HostControl;
         }
     }
 }
