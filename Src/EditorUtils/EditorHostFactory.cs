@@ -58,6 +58,8 @@ namespace EditorUtils
         private const int MinVisualStudioVersion = 11;
 #elif VS2013 
         private const int MinVisualStudioVersion = 12;
+#elif VS2015 
+        private const int MinVisualStudioVersion = 14;
 #else
         private const int MinVisualStudioVersion = 10;
 #endif

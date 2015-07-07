@@ -42,7 +42,12 @@ function build-release() {
 function test-vs-install() { 
     param ([string]$version = $(throw "Need a version"))
 
-    $path = "hklm:\Software\Microsoft\VisualStudio\{0}" -f $version
+    if ([IntPtr]::Size -eq 4) { 
+        $path = "hklm:\Software\Microsoft\VisualStudio\{0}" -f $version
+    } 
+    else {
+        $path = "hklm:\Software\Wow6432Node\Microsoft\VisualStudio\{0}" -f $version
+    }
     $i = get-itemproperty $path InstallDir -ea SilentlyContinue | %{ $_.InstallDir }
     return $i -ne $null
 }
@@ -188,6 +193,7 @@ else {
     deploy-version "Vs2010" "10.0"
     deploy-version "Vs2012" "11.0" 
     deploy-version "Vs2013" "12.0"
+    deploy-version "Vs2015" "14.0"
 }
 
 rm env:\SolutionDir
