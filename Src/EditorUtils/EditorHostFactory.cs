@@ -157,7 +157,11 @@ namespace EditorUtils
                 // needs to be added to the app.config file to make that happen. 
                 if (targetAssemblyName.Version != assembly.GetName().Version)
                 {
-                    throw new Exception("A newer version of the editor was loaded but the binding redirects were added to app.config");
+                    var msg = string.Format(
+                        "A newer version of the editor was loaded {0} but the binding redirects weren't added to app.config for {1}",
+                        assembly.GetName().Version,
+                        targetAssemblyName.Version);
+                    throw new Exception(msg);
                 }
 
                 list.Add(new AssemblyCatalog(assembly));
