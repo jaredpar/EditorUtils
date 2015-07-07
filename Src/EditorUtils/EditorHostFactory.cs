@@ -14,17 +14,16 @@ namespace EditorUtils
 {
     public sealed partial class EditorHostFactory
     {
-        // Determine the minimum Visual Studio number that we should be probing for.  It is okay to 
-        // find later versions because Visual Studio is back compat.  Using an earlier version does
-        // not work though 
+        // Determine the Visual Studio number that we are compiled against.  This is important for 
+        // doing probing of editor binaries (okay to load later, but not earlier).  
 #if VS2010 
-        private const EditorVersion GeneratedMinimumEditorVersion = EditorVersion.Vs2010;
+        private const EditorVersion ReferencedEditorVersion = EditorVersion.Vs2010;
 #elif VS2012
-        private const EditorVersion GeneratedMinimumEditorVersion = EditorVersion.Vs2012;
+        private const EditorVersion ReferencedEditorVersion = EditorVersion.Vs2012;
 #elif VS2013
-        private const EditorVersion GeneratedMinimumEditorVersion = EditorVersion.Vs2013;
+        private const EditorVersion ReferencedEditorVersion = EditorVersion.Vs2013;
 #elif VS2015
-        private const EditorVersion GeneratedMinimumEditorVersion = EditorVersion.Vs2015;
+        private const EditorVersion ReferencedEditorVersion = EditorVersion.Vs2015;
 #else
 #error Unexpected build combination 
 #endif
@@ -80,7 +79,7 @@ namespace EditorUtils
         /// </summary>
         public static EditorVersion MinimumEditorVersion
         {
-            get { return GeneratedMinimumEditorVersion; }
+            get { return ReferencedEditorVersion; }
         }
 
         public static EditorVersion MaxEditorVersion
@@ -135,14 +134,35 @@ namespace EditorUtils
             }
 
             // Load the core editor compontents from the GAC
-            string versionInfo = string.Format(", Version={0}, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL", version);
+            var targetAssemblyName = typeof(ITextBufferUndoManager).Assembly.GetName();
+            var versionInfo = string.Format(", Version={0}, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL", version);
             foreach (var name in EditorComponents)
             {
                 var simpleName = name.Substring(0, name.Length - 4);
                 var qualifiedName = simpleName + versionInfo;
-                var assembly = Assembly.Load(qualifiedName);
+
+                Assembly assembly;
+                try
+                {
+                    assembly = Assembly.Load(qualifiedName);
+                }
+                catch (Exception e)
+                {
+                    var msg = string.Format("Unable to load editor dependency {0}", name);
+                    throw new Exception(msg, e);
+                }
+
+                // The code is compiled against a specific version of the editor binaries but can 
+                // support loading newer ones.  In order to do this though the appropriate information
+                // needs to be added to the app.config file to make that happen. 
+                if (targetAssemblyName.Version != assembly.GetName().Version)
+                {
+                    throw new Exception("A newer version of the editor was loaded but the binding redirects were added to app.config");
+                }
+
                 list.Add(new AssemblyCatalog(assembly));
             }
+
         }
 
         private static bool TryGetEditorInfo(EditorVersion? editorVersion, out string fullVersion, out string installDirectory)
