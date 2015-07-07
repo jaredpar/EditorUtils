@@ -134,7 +134,6 @@ namespace EditorUtils
             }
 
             // Load the core editor compontents from the GAC
-            var targetAssemblyName = typeof(ITextBufferUndoManager).Assembly.GetName();
             var versionInfo = string.Format(", Version={0}, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL", version);
             foreach (var name in EditorComponents)
             {
@@ -152,21 +151,8 @@ namespace EditorUtils
                     throw new Exception(msg, e);
                 }
 
-                // The code is compiled against a specific version of the editor binaries but can 
-                // support loading newer ones.  In order to do this though the appropriate information
-                // needs to be added to the app.config file to make that happen. 
-                if (targetAssemblyName.Version != assembly.GetName().Version)
-                {
-                    var msg = string.Format(
-                        "A newer version of the editor was loaded {0} but the binding redirects weren't added to app.config for {1}",
-                        assembly.GetName().Version,
-                        targetAssemblyName.Version);
-                    throw new Exception(msg);
-                }
-
                 list.Add(new AssemblyCatalog(assembly));
             }
-
         }
 
         private static bool TryGetEditorInfo(EditorVersion? editorVersion, out string fullVersion, out string installDirectory)
