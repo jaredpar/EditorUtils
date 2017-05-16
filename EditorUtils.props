@@ -1,32 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
+  <PropertyGroup Condition="'$(EditorVersion)' == ''">
+    <EditorVersion Condition="'$(VisualStudioVersion)' == '10.0'">Vs2010</EditorVersion>
+    <EditorVersion Condition="'$(VisualStudioVersion)' == '11.0'">Vs2012</EditorVersion>
+    <EditorVersion Condition="'$(VisualStudioVersion)' == '12.0'">Vs2013</EditorVersion>
+    <EditorVersion Condition="'$(VisualStudioVersion)' == '14.0'">Vs2015</EditorVersion>
+    <EditorVersion Condition="'$(VisualStudioVersion)' == '15.0'">Vs2017</EditorVersion>
+
+    <!-- Fall back for a standard build -->
+    <EditorVersion Condition="'$(EditorVersion)' == ''">Vs2010</EditorVersion>
+  </PropertyGroup>
+
   <PropertyGroup>
     <RepoPath>$(MSBuildThisFileDirectory)</RepoPath>
     <BinariesPath>$(RepoPath)Binaries\</BinariesPath>
     <BaseIntermediateOutputPath>$(BinariesPath)obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
-    <BaseOutputPath Condition="'$(BaseOutputPath)' == ''">$(RepoRoot)Binaries\</BaseOutputPath>
-    <OutputPath>$(BaseOutputPath)$(Configuration)\</OutputPath>
+    <BaseOutputPath Condition="'$(BaseOutputPath)' == ''">$(BinariesPath)</BaseOutputPath>
+    <OutputPath>$(BinariesPath)$(Configuration)\$(MSBuildProjectName)</OutputPath>
+    <EditorUtilsAppConfig>$(MSBuildThisFileDirectory)References\$(EditorVersion)\App.config</EditorUtilsAppConfig>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\$(EditorVersion)</ReferencePath>
+    <SolutionDir>$(RepoPath)</SolutionDir>
   </PropertyGroup>
 
-  <PropertyGroup Condition=" '$(VisualStudioVersion)' == '10.0' ">
-    <EditorUtilsAppConfig>$(MSBuildThisFileDirectory)References\Vs2010\App.config</EditorUtilsAppConfig>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(VisualStudioVersion)' == '11.0' ">
-    <EditorUtilsAppConfig>$(MSBuildThisFileDirectory)References\Vs2012\App.config</EditorUtilsAppConfig>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(VisualStudioVersion)' == '12.0' ">
-    <EditorUtilsAppConfig>$(MSBuildThisFileDirectory)References\Vs2013\App.config</EditorUtilsAppConfig>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(VisualStudioVersion)' == '14.0' ">
-    <EditorUtilsAppConfig>$(MSBuildThisFileDirectory)References\Vs2015\App.config</EditorUtilsAppConfig>
-  </PropertyGroup>
-  
-  <PropertyGroup Condition=" '$(EditorVersion)' == '' Or '$(EditorVersion)' == 'Vs2010' ">
-    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2010</ReferencePath>
+  <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2010' ">
     <EditorSuffix>2010</EditorSuffix>
     <EditorAssemblyVersion>10.0.0.0</EditorAssemblyVersion>
     <EditorFrameworkVersion>4.0</EditorFrameworkVersion>
@@ -34,7 +31,6 @@
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2012' ">
-    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2012</ReferencePath>
     <EditorSuffix>2012</EditorSuffix>
     <EditorAssemblyVersion>11.0.0.0</EditorAssemblyVersion>
     <EditorFrameworkVersion>4.5</EditorFrameworkVersion>
@@ -42,7 +38,6 @@
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2013' ">
-    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2013</ReferencePath>
     <EditorSuffix>2013</EditorSuffix>
     <EditorAssemblyVersion>12.0.0.0</EditorAssemblyVersion>
     <EditorFrameworkVersion>4.5</EditorFrameworkVersion>
@@ -50,11 +45,17 @@
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2015' ">
-    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2015</ReferencePath>
     <EditorSuffix>2015</EditorSuffix>
     <EditorAssemblyVersion>14.0.0.0</EditorAssemblyVersion>
     <EditorFrameworkVersion>4.5</EditorFrameworkVersion>
     <DefineConstants>$(DefineConstants);VS2015</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2017' ">
+    <EditorSuffix>2017</EditorSuffix>
+    <EditorAssemblyVersion>15.0.0.0</EditorAssemblyVersion>
+    <EditorFrameworkVersion>4.5</EditorFrameworkVersion>
+    <DefineConstants>$(DefineConstants);VS2017</DefineConstants>
   </PropertyGroup>
 
   <!-- AppVeyor specific settings -->

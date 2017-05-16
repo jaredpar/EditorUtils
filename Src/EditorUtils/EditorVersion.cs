@@ -15,5 +15,6 @@ namespace EditorUtils
         Vs2012,
         Vs2013,
         Vs2015,
+        Vs2017,
     }
 }

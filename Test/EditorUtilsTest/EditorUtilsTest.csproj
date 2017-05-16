@@ -13,8 +13,8 @@
     <AssemblyName>EditorUtils.UnitTest</AssemblyName>
     <TargetFrameworkVersion>$(EditorFrameworkVersion)</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
     <RestorePackages>true</RestorePackages>
+    <OutputPath>$(OutputPath)\$(EditorVersion)</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -100,7 +100,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Project="$(SolutionDir)\.nuget\nuget.targets" />
+  <Import Project="$(RepoPath)\.nuget\nuget.targets" />
   <!-- Copy the appropriate App.config file into this project before the build occurs -->
   <Target Name="BeforeBuild">
     <Copy SourceFiles="$(EditorUtilsAppConfig)" DestinationFolder="$(MSBuildThisFileDirectory)" />

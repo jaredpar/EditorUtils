@@ -25,6 +25,7 @@ namespace EditorUtils.UnitTest
             Assert.Equal(11, EditorHostFactory.GetVersionNumber(EditorVersion.Vs2012));
             Assert.Equal(12, EditorHostFactory.GetVersionNumber(EditorVersion.Vs2013));
             Assert.Equal(14, EditorHostFactory.GetVersionNumber(EditorVersion.Vs2015));
+            Assert.Equal(15, EditorHostFactory.GetVersionNumber(EditorVersion.Vs2017));
         }
 
         [Fact]

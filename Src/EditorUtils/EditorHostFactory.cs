@@ -24,6 +24,8 @@ namespace EditorUtils
         private const EditorVersion ReferencedEditorVersion = EditorVersion.Vs2013;
 #elif VS2015
         private const EditorVersion ReferencedEditorVersion = EditorVersion.Vs2015;
+#elif VS2017
+        private const EditorVersion ReferencedEditorVersion = EditorVersion.Vs2017;
 #else
 #error Unexpected build combination 
 #endif
@@ -84,7 +86,7 @@ namespace EditorUtils
 
         public static EditorVersion MaxEditorVersion
         {
-            get { return EditorVersion.Vs2015; }
+            get { return EditorVersion.Vs2017; }
         }
 
         public EditorHostFactory(EditorVersion? editorVersion = null)
@@ -296,6 +298,7 @@ namespace EditorUtils
                 case EditorVersion.Vs2012: return 11;
                 case EditorVersion.Vs2013: return 12;
                 case EditorVersion.Vs2015: return 14;
+                case EditorVersion.Vs2017: return 15;
                 default:
                     throw new Exception(string.Format("Unexpected enum value {0}", version));
             }
