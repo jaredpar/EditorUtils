@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
+  <PropertyGroup>
+    <RepoPath>$(MSBuildThisFileDirectory)</RepoPath>
+    <BinariesPath>$(RepoPath)Binaries\</BinariesPath>
+    <BaseIntermediateOutputPath>$(BinariesPath)obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <BaseOutputPath Condition="'$(BaseOutputPath)' == ''">$(RepoRoot)Binaries\</BaseOutputPath>
+    <OutputPath>$(BaseOutputPath)$(Configuration)\</OutputPath>
+  </PropertyGroup>
+
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '10.0' ">
     <EditorUtilsAppConfig>$(MSBuildThisFileDirectory)References\Vs2010\App.config</EditorUtilsAppConfig>
   </PropertyGroup>
