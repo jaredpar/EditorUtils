@@ -20,6 +20,7 @@
     <OutputPath>$(BinariesPath)$(Configuration)\$(MSBuildProjectName)</OutputPath>
     <EditorUtilsAppConfig>$(MSBuildThisFileDirectory)References\$(EditorVersion)\App.config</EditorUtilsAppConfig>
     <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\$(EditorVersion)</ReferencePath>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Common</ReferencePath>
     <SolutionDir>$(RepoPath)</SolutionDir>
   </PropertyGroup>
 

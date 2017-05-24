@@ -40,6 +40,9 @@
     <Reference Include="Microsoft.VisualStudio.Text.Logic, Version=$(EditorAssemblyVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
     <Reference Include="Microsoft.VisualStudio.Text.UI, Version=$(EditorAssemblyVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
     <Reference Include="Microsoft.VisualStudio.Text.UI.Wpf, Version=$(EditorAssemblyVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
+    <Reference Include="Microsoft.VisualStudio.Setup.Configuration.Interop, Version=1.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="System.Core" />
@@ -53,8 +56,10 @@
     <Compile Include="EditorHost.cs" />
     <Compile Include="EditorHostFactory.cs" />
     <Compile Include="EditorHostFactory.UndoExportProvider.cs" />
+    <Compile Include="EditorLocatorUtil.cs" />
     <Compile Include="EditorUtilsTrace.cs" />
     <Compile Include="EditorVersion.cs" />
+    <Compile Include="EditorVersionUtil.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="IAdhocOutliner.cs" />
     <Compile Include="IAsyncTaggerSource.cs" />
