@@ -68,7 +68,7 @@
     <Compile Include="ClassifierTest.cs" />
     <Compile Include="CountedClassifierTest.cs" />
     <Compile Include="CountedTaggerTest.cs" />
-    <Compile Include="EditorHostFactoryTest.cs" />
+    <Compile Include="EditorVersionUtilTest.cs" />
     <Compile Include="EditorHostTest.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="EqualityUtil.cs" />
