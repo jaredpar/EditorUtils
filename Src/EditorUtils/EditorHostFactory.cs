@@ -52,8 +52,13 @@ namespace EditorUtils
 
         public EditorHostFactory(EditorVersion? editorVersion = null)
         {
-            AppendEditorCatalog(_composablePartCatalogList, editorVersion);
+            var version = AppendEditorCatalog(_composablePartCatalogList, editorVersion);
             _exportProviderList.Add(new UndoExportProvider());
+
+            if (version.Major >= 15)
+            {
+                _exportProviderList.Add(new JoinableTaskContextExportProvider());
+            }
         }
 
         public void Add(ComposablePartCatalog composablePartCatalog)
@@ -81,7 +86,7 @@ namespace EditorUtils
         /// Load the list of editor assemblies into the specified catalog list.  This method will
         /// throw on failure
         /// </summary>
-        private static void AppendEditorCatalog(List<ComposablePartCatalog> list, EditorVersion? editorVersion)
+        private static Version AppendEditorCatalog(List<ComposablePartCatalog> list, EditorVersion? editorVersion)
         {
             Version version;
             string installDirectory;
@@ -94,6 +99,7 @@ namespace EditorUtils
 
             var assemblyList = LoadEditorComponents(version);
             list.AddRange(assemblyList.Select(x => new AssemblyCatalog(x)));
+            return version;
         }
 
         /// <summary>
