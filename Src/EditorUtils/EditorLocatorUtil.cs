@@ -23,84 +23,74 @@ namespace EditorUtils
         internal static readonly string[] VisualStudioSkuKeyNames =
             new[]
             {
-                // Standard non-express SKU of Visual Studio
                 "VisualStudio",
-
-                // Windows Desktop express
                 "WDExpress",
-
-                // Visual C# express
                 "VCSExpress",
-
-                // Visual C++ express
                 "VCExpress",
-
-                // Visual Basic Express
                 "VBExpress",
             };
 
-
-        internal static bool TryGetEditorInfo(EditorVersion? editorVersion, out Version version, out string installDirectory)
+        internal static bool TryGetEditorInfo(EditorVersion? editorVersion, out Version vsVersion, out string vsvsInstallDirectory)
         {
             if (editorVersion.HasValue)
             {
-                return TryGetEditorInfo(editorVersion.Value, out version, out installDirectory);
+                return TryGetEditorInfo(editorVersion.Value, out vsVersion, out vsvsInstallDirectory);
             }
 
             foreach (var e in EditorVersionUtil.All.OrderBy(x => EditorVersionUtil.GetMajorVersionNumber(x)))
             {
-                if (TryGetEditorInfo(e, out version, out installDirectory))
+                if (TryGetEditorInfo(e, out vsVersion, out vsvsInstallDirectory))
                 {
                     return true;
                 }
             }
 
-            version = default(Version);
-            installDirectory = null;
+            vsVersion = default(Version);
+            vsvsInstallDirectory = null;
             return false;
         }
 
-        internal static bool TryGetEditorInfo(EditorVersion editorVersion, out Version version, out string installDirectory)
+        internal static bool TryGetEditorInfo(EditorVersion editorVersion, out Version vsVersion, out string vsInstallDirectory)
         {
             var majorVersion = EditorVersionUtil.GetMajorVersionNumber(editorVersion);
             return majorVersion < 15
-                ? TryGetEditorInfoLegacy(majorVersion, out version, out installDirectory)
-                : TryGetEditorInfoWillow(majorVersion, out version, out installDirectory);
+                ? TryGetEditorInfoLegacy(majorVersion, out vsVersion, out vsInstallDirectory)
+                : TryGetEditorInfoWillow(majorVersion, out vsVersion, out vsInstallDirectory);
         }
 
-        private static bool TryGetEditorInfoLegacy(int majorVersion, out Version version, out string installDirectory)
+        private static bool TryGetEditorInfoLegacy(int majorVersion, out Version vsVersion, out string vsInstallDirectory)
         {
-            if (TryGetInstallDirectoryLegacy(majorVersion, out installDirectory))
+            if (TryGetVsInstallDirectoryLegacy(majorVersion, out vsInstallDirectory))
             {
-                version = new Version(majorVersion, 0);
+                vsVersion = new Version(majorVersion, 0);
                 return true;
             }
 
-            version = default(Version);
-            installDirectory = null;
+            vsVersion = default(Version);
+            vsInstallDirectory = null;
             return false;
         }
 
         /// <summary>
         /// Try and get the installation directory for the specified SKU of Visual Studio.  This 
-        /// will fail if the specified version of Visual Studio isn't installed.  Only works on 
+        /// will fail if the specified vsVersion of Visual Studio isn't installed.  Only works on 
         /// pre-willow VS installations (< 15.0).  
         /// </summary>
-        private static bool TryGetInstallDirectoryLegacy(int majorVersion, out string installDirectory)
+        private static bool TryGetVsInstallDirectoryLegacy(int majorVersion, out string vsInstallDirectory)
         {
             foreach (var skuKeyName in VisualStudioSkuKeyNames)
             {
-                if (TryGetInstallDirectoryLegacy(majorVersion, skuKeyName, out installDirectory))
+                if (TryGetvsInstallDirectoryLegacy(majorVersion, skuKeyName, out vsInstallDirectory))
                 {
                     return true;
                 }
             }
 
-            installDirectory = null;
+            vsInstallDirectory = null;
             return false;
         }
 
-        private static bool TryGetInstallDirectoryLegacy(int majorVersion, string skuKeyName,out string installDirectory)
+        private static bool TryGetvsInstallDirectoryLegacy(int majorVersion, string skuKeyName,out string vsInstallDirectory)
         {
             try
             {
@@ -109,8 +99,8 @@ namespace EditorUtils
                 {
                     if (key != null)
                     {
-                        installDirectory = key.GetValue("InstallDir", null) as string;
-                        if (!String.IsNullOrEmpty(installDirectory))
+                        vsInstallDirectory = key.GetValue("InstallDir", null) as string;
+                        if (!String.IsNullOrEmpty(vsInstallDirectory))
                         {
                             return true;
                         }
@@ -119,17 +109,17 @@ namespace EditorUtils
             }
             catch (Exception)
             {
-                // Ignore and try the next version
+                // Ignore and try the next vsVersion
             }
 
-            installDirectory = null;
+            vsInstallDirectory = null;
             return false;
         }
 
         /// <summary>
-        /// Get the first Willow VS installation with the specified major version.
+        /// Get the first Willow VS installation with the specified major vsVersion.
         /// </summary>
-        private static bool TryGetEditorInfoWillow(int majorVersion, out Version version, out string directory)
+        private static bool TryGetEditorInfoWillow(int majorVersion, out Version vsVersion, out string directory)
         {
             Debug.Assert(majorVersion >= 15);
 
@@ -146,8 +136,8 @@ namespace EditorUtils
                 }
 
                 var instance = array[0];
-                if (Version.TryParse(instance.GetInstallationVersion(), out version) &&
-                    version.Major == majorVersion)
+                if (Version.TryParse(instance.GetInstallationVersion(), out vsVersion) &&
+                    vsVersion.Major == majorVersion)
                 {
                     directory = Path.Combine(instance.GetInstallationPath(), @"Common7\IDE");
                     return true;
@@ -156,7 +146,7 @@ namespace EditorUtils
             while (true);
 
             directory = null;
-            version = default(Version);
+            vsVersion = default(Version);
             return false;
         }
     }

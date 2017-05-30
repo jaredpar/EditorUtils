@@ -14,23 +14,13 @@ namespace EditorUtils
 {
     public sealed partial class EditorHostFactory
     {
-        private static readonly string[] EditorComponents =
+        internal static string[] CoreEditorComponents =
             new[]
             {
-                // Core editor components
                 "Microsoft.VisualStudio.Platform.VSEditor.dll",
-
-                // Not entirely sure why this is suddenly needed
                 "Microsoft.VisualStudio.Text.Internal.dll",
-
-                // Must include this because several editor options are actually stored as exported information 
-                // on this DLL.  Including most importantly, the tabsize information
                 "Microsoft.VisualStudio.Text.Logic.dll",
-
-                // Include this DLL to get several more EditorOptions including WordWrapStyle
                 "Microsoft.VisualStudio.Text.UI.dll",
-
-                // Include this DLL to get more EditorOptions values and the core editor
                 "Microsoft.VisualStudio.Text.UI.Wpf.dll",
             };
 
@@ -58,6 +48,14 @@ namespace EditorUtils
             if (version.Major >= 15)
             {
                 _exportProviderList.Add(new JoinableTaskContextExportProvider());
+                _composablePartCatalogList.Add(new TypeCatalog(GetEditorType(
+                    "Microsoft.VisualStudio.Editor.Implementation",
+                    version,
+                    "Microsoft.VisualStudio.Editor.Implementation.LoggingServiceInternal")));
+
+#if VS2017
+                _composablePartCatalogList.Add(new TypeCatalog(typeof(SimpleWaitIndicator)));
+#endif
             }
         }
 
@@ -88,16 +86,17 @@ namespace EditorUtils
         /// </summary>
         private static Version AppendEditorCatalog(List<ComposablePartCatalog> list, EditorVersion? editorVersion)
         {
-            Version version;
-            string installDirectory;
-            if (!EditorLocatorUtil.TryGetEditorInfo(editorVersion, out version, out installDirectory))
+            Version vsVersion;
+            string vsInstallDirectory;
+            if (!EditorLocatorUtil.TryGetEditorInfo(editorVersion, out vsVersion, out vsInstallDirectory))
             {
                 throw new Exception("Unable to calculate the version of Visual Studio installed on the machine");
             }
 
-            HookResolve(version, installDirectory);
+            var version = new Version(vsVersion.Major, 0);
+            HookResolve(version, vsInstallDirectory);
 
-            var assemblyList = LoadEditorComponents(version);
+            var assemblyList = GetEditorAssemblies(version);
             list.AddRange(assemblyList.Select(x => new AssemblyCatalog(x)));
             return version;
         }
@@ -136,28 +135,46 @@ namespace EditorUtils
                 };
         }
 
-        private static List<Assembly> LoadEditorComponents(Version version)
+        private static List<Assembly> GetEditorAssemblies(Version version)
         {
-            var list = new List<Assembly>(EditorComponents.Length);
-            foreach (var name in EditorComponents)
+            var list = new List<Assembly>(CoreEditorComponents.Length);
+            foreach (var name in CoreEditorComponents)
             {
                 var simpleName = Path.GetFileNameWithoutExtension(name);
-                var qualifiedName = string.Format("{0}, Version={1}, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL", simpleName, version);
-                Assembly assembly;
-                try
-                {
-                    assembly = Assembly.Load(qualifiedName);
-                }
-                catch (Exception e)
-                {
-                    var msg = string.Format("Unable to load editor dependency {0}", name);
-                    throw new Exception(msg, e);
-                }
-
+                var assembly = GetEditorAssembly(simpleName, version);
                 list.Add(assembly);
             }
 
             return list;
         }
+
+        private static Assembly GetEditorAssembly(string assemblyName, Version version)
+        {
+            var qualifiedName = string.Format("{0}, Version={1}, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL", assemblyName, version);
+            try
+            {
+                return Assembly.Load(qualifiedName);
+            }
+            catch (Exception e)
+            {
+                var msg = string.Format("Unable to load editor dependency {0}", assemblyName);
+                throw new Exception(msg, e);
+            }
+        }
+
+        private static Type GetEditorType(string assemblyName, Version version, string typeName)
+        {
+            var assembly = GetEditorAssembly(assemblyName, version);
+            try
+            {
+                return assembly.GetType(typeName);
+            }
+            catch (Exception e)
+            {
+                var msg = string.Format("Unable to load editor type {0}", typeName);
+                throw new Exception(msg, e);
+            }
+        }
+
     }
 }

@@ -55,7 +55,7 @@
   <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2017' ">
     <EditorSuffix>2017</EditorSuffix>
     <EditorAssemblyVersion>15.0.0.0</EditorAssemblyVersion>
-    <EditorFrameworkVersion>4.5</EditorFrameworkVersion>
+    <EditorFrameworkVersion>4.6</EditorFrameworkVersion>
     <DefineConstants>$(DefineConstants);VS2017</DefineConstants>
   </PropertyGroup>
 
