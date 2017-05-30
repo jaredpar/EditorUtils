@@ -97,6 +97,13 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\EditorUtils.Vs2017\EditorUtils.Vs2017.csproj">
+      <Project>{7f5978fe-07d8-414d-8a18-18343b9688d1}</Project>
+      <Name>EditorUtils.Vs2017</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>Content</OutputItemType>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </ProjectReference>
     <ProjectReference Include="..\EditorUtils\EditorUtils.csproj">
       <Project>{fb418222-c105-4942-8eeb-832ddcffd89d}</Project>
       <Name>EditorUtils</Name>
