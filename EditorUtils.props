@@ -19,7 +19,11 @@
     <BaseOutputPath Condition="'$(BaseOutputPath)' == ''">$(BinariesPath)</BaseOutputPath>
     <OutputPath>$(BinariesPath)$(Configuration)\$(MSBuildProjectName)</OutputPath>
     <EditorUtilsAppConfig>$(MSBuildThisFileDirectory)References\$(EditorVersion)\App.config</EditorUtilsAppConfig>
-    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\$(EditorVersion)</ReferencePath>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2010</ReferencePath>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2012</ReferencePath>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2013</ReferencePath>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2015</ReferencePath>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2017</ReferencePath>
     <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Common</ReferencePath>
     <SolutionDir>$(RepoPath)</SolutionDir>
   </PropertyGroup>
