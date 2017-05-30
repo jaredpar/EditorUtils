@@ -8,6 +8,10 @@ branches:
 
 configuration: Debug
 
+before_build: 
+  # Updates the version number in the .vsixmanifest and updates the AppVeyor build number to match
+  - nuget restore EditorUtils.sln
+
 build:
   project: EditorUtils.sln
   verbosity: minimal
