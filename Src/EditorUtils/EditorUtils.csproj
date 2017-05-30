@@ -92,6 +92,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Key.snk" />
+    <None Include="app.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\EditorUtils.Vs2017\EditorUtils.Vs2017.csproj">

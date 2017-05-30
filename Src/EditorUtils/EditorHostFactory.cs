@@ -141,10 +141,6 @@ namespace EditorUtils
                 var assembly = Assembly.Load(qualifiedName);
                 _composablePartCatalogList.Add(new AssemblyCatalog(assembly));
 
-                _composablePartCatalogList.Add(new TypeCatalog(GetEditorType(
-                    "Microsoft.VisualStudio.Editor.Implementation",
-                    editorAssemblyVersion,
-                    "Microsoft.VisualStudio.Editor.Implementation.LoggingServiceInternal")));
                 _exportProviderList.Add(new JoinableTaskContextExportProvider());
             }
         }
@@ -153,12 +149,6 @@ namespace EditorUtils
         {
             var qualifiedName = string.Format("{0}, Version={1}, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL", assemblyName, version);
             return Assembly.Load(qualifiedName);
-        }
-
-        private static Type GetEditorType(string assemblyName, Version version, string typeName)
-        {
-            var assembly = GetEditorAssembly(assemblyName, version);
-            return assembly.GetType(typeName);
         }
     }
 }
