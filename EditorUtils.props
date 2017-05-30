@@ -27,35 +27,35 @@
   <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2010' ">
     <EditorSuffix>2010</EditorSuffix>
     <EditorAssemblyVersion>10.0.0.0</EditorAssemblyVersion>
-    <EditorFrameworkVersion>4.0</EditorFrameworkVersion>
+    <TargetFrameworkVersion>4.0</TargetFrameworkVersion>
     <DefineConstants>$(DefineConstants);VS2010</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2012' ">
     <EditorSuffix>2012</EditorSuffix>
     <EditorAssemblyVersion>11.0.0.0</EditorAssemblyVersion>
-    <EditorFrameworkVersion>4.5</EditorFrameworkVersion>
+    <TargetFrameworkVersion>4.5</TargetFrameworkVersion>
     <DefineConstants>$(DefineConstants);VS2012</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2013' ">
     <EditorSuffix>2013</EditorSuffix>
     <EditorAssemblyVersion>12.0.0.0</EditorAssemblyVersion>
-    <EditorFrameworkVersion>4.5</EditorFrameworkVersion>
+    <TargetFrameworkVersion>4.5</TargetFrameworkVersion>
     <DefineConstants>$(DefineConstants);VS2013</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2015' ">
     <EditorSuffix>2015</EditorSuffix>
     <EditorAssemblyVersion>14.0.0.0</EditorAssemblyVersion>
-    <EditorFrameworkVersion>4.5</EditorFrameworkVersion>
+    <TargetFrameworkVersion>4.5</TargetFrameworkVersion>
     <DefineConstants>$(DefineConstants);VS2015</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2017' ">
     <EditorSuffix>2017</EditorSuffix>
     <EditorAssemblyVersion>15.0.0.0</EditorAssemblyVersion>
-    <EditorFrameworkVersion>4.6</EditorFrameworkVersion>
+    <TargetFrameworkVersion>4.6</TargetFrameworkVersion>
     <DefineConstants>$(DefineConstants);VS2017</DefineConstants>
   </PropertyGroup>
 

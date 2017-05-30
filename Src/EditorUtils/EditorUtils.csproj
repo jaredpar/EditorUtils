@@ -10,7 +10,6 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>EditorUtils</RootNamespace>
     <AssemblyName>EditorUtils$(EditorSuffix)</AssemblyName>
-    <TargetFrameworkVersion>$(EditorFrameworkVersion)</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <OutputPath>$(OutputPath)\$(EditorVersion)</OutputPath>
   </PropertyGroup>

@@ -7,7 +7,6 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{7F5978FE-07D8-414D-8A18-18343B9688D1}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>EditorUtils.Vs2017</RootNamespace>
     <AssemblyName>EditorUtils.Vs2017</AssemblyName>
     <TargetFrameworkVersion>4.6</TargetFrameworkVersion>
