@@ -27,19 +27,6 @@ namespace EditorUtils
         private readonly List<ComposablePartCatalog> _composablePartCatalogList = new List<ComposablePartCatalog>();
         private readonly List<ExportProvider> _exportProviderList = new List<ExportProvider>();
 
-        /// <summary>
-        /// The minimum <see cref="EditorVersion"/> value supported by this assembly. 
-        /// </summary>
-        public static EditorVersion MinimumEditorVersion
-        {
-            get { return EditorVersionUtil.MinVersion; }
-        }
-
-        public static EditorVersion MaxEditorVersion
-        {
-            get { return EditorVersionUtil.MaxVersion; }
-        }
-
         public EditorHostFactory(EditorVersion? editorVersion = null)
         {
             BuildBaseCatalog(editorVersion);

@@ -37,7 +37,7 @@ namespace EditorUtils
                 return TryGetEditorInfo(editorVersion.Value, out vsVersion, out vsvsInstallDirectory);
             }
 
-            foreach (var e in EditorVersionUtil.All.OrderBy(x => EditorVersionUtil.GetMajorVersionNumber(x)))
+            foreach (var e in EditorVersionUtil.Supported)
             {
                 if (TryGetEditorInfo(e, out vsVersion, out vsvsInstallDirectory))
                 {

@@ -38,5 +38,16 @@ namespace EditorUtils.UnitTest
                 Assert.True(number <= max);
             }
         }
+
+        [Fact]
+        public void Completeness()
+        {
+            foreach (var e in Enum.GetValues(typeof(EditorVersion)).Cast<EditorVersion>())
+            {
+                var majorVersion = EditorVersionUtil.GetMajorVersionNumber(e);
+                var e2 = EditorVersionUtil.GetEditorVersion(majorVersion);
+                Assert.Equal(e, e2);
+            }
+        }
     }
 }

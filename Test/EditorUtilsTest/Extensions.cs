@@ -142,7 +142,25 @@ namespace EditorUtils.UnitTest
                 DispatcherPriority.SystemIdle,
                 action,
                 frame);
-            Dispatcher.PushFrame(frame);
+
+            var count = 3;
+            do
+            {
+                try
+                {
+                    Dispatcher.PushFrame(frame);
+                    break;
+                }
+                catch
+                {
+                    // The core editor can surface exceptions when we run events in
+                    // this manner.  It would be nice if they could be distinguished from
+                    // exceptions thrown from EditorUtils but can't find a way.  Reluctantly
+                    // swallow exceptions.
+                }
+
+                count--;
+            } while (count > 0);
         }
 
         #endregion
