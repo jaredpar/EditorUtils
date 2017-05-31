@@ -1,6 +1,9 @@
 
 image: Visual Studio 2017
 
+environment:
+    VisualStudioVersion: 15.0
+
 # Branchs to build
 branches:
   only:
@@ -17,5 +20,5 @@ build:
   verbosity: minimal
 
 test_script:
-      - Tools\xunit.console.clr4.x86.exe Test\EditorUtilsTest\bin\Debug\EditorUtils.UnitTest.dll /silent
+      - Tools\xunit.console.clr4.x86.exe Binaries\Debug\EditorUtilsTest\Vs2017\EditorUtils.UnitTest.dll /silent
 
