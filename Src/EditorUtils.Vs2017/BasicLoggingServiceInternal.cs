@@ -31,15 +31,5 @@ namespace EditorUtils.Vs2017
         {
 
         }
-
-        void ILoggingServiceInternal.PostEvent(DataModelEventType eventType, string eventName, TelemetryResult result, params (string name, object property)[] namesAndProperties)
-        {
-
-        }
-
-        void ILoggingServiceInternal.PostEvent(DataModelEventType eventType, string eventName, TelemetryResult result, IReadOnlyList<(string name, object property)> namesAndProperties)
-        {
-
-        }
     }
 }
