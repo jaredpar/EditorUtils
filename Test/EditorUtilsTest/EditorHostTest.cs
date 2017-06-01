@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.Text.Operations;
 using Microsoft.VisualStudio.Text.Outlining;
 using Microsoft.VisualStudio.Text.Projection;
 using Microsoft.VisualStudio.Utilities;
+using System.Reflection;
 
 namespace EditorUtils.UnitTest
 {
@@ -90,7 +91,22 @@ namespace EditorUtils.UnitTest
 
         public EditorHostTest()
         {
-            _editorHost = GetOrCreateEditorHost();
+            try
+            {
+                _editorHost = GetOrCreateEditorHost();
+            }
+            catch (ReflectionTypeLoadException e)
+            {
+                // When this fails in AppVeyor the error message is useless.  Need to construct a more actionable
+                // error message here. 
+                var builder = new StringBuilder();
+                builder.AppendLine(e.Message);
+                foreach (var item in e.LoaderExceptions)
+                {
+                    builder.AppendLine(item.Message);
+                }
+                throw new Exception(builder.ToString(), e);
+            }
             _synchronizationContext = new TestableSynchronizationContext();
             _synchronizationContext.Install();
         }
