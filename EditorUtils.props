@@ -26,6 +26,9 @@
     <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2017</ReferencePath>
     <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Common</ReferencePath>
     <SolutionDir>$(RepoPath)</SolutionDir>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(RepoPath)\Key.snk</AssemblyOriginatorKeyFile>
+    <DelaySign>false</DelaySign>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2010' ">
