@@ -1,7 +1,7 @@
 ﻿
 namespace EditorUtils
 {
-    public static class Constants
+    internal static class Constants
     {
         /// <summary>
         /// The version of the assembly.  This must be changed every time a new version of the utility 
@@ -18,6 +18,6 @@ namespace EditorUtils
         /// <summary>
         /// Standard delay for asynchronous taggers
         /// </summary>
-        public const int DefaultAsyncDelay = 100;
+        internal const int DefaultAsyncDelay = 100;
     }
 }

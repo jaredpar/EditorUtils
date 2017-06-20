@@ -7,8 +7,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{7F5978FE-07D8-414D-8A18-18343B9688D1}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>EditorUtils.Vs2017</RootNamespace>
-    <AssemblyName>EditorUtils.Vs2017</AssemblyName>
+    <RootNamespace>EditorUtils.Host.Vs2017</RootNamespace>
+    <AssemblyName>EditorUtils.Host.Vs2017</AssemblyName>
     <TargetFrameworkVersion>4.6</TargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -54,6 +54,16 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\EditorUtils.Host\EditorUtils.Host.csproj">
+      <Project>{863a0141-59c5-481d-a3fc-a5812d973feb}</Project>
+      <Name>EditorUtils.Host</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\EditorUtils\EditorUtils.csproj">
+      <Project>{fb418222-c105-4942-8eeb-832ddcffd89d}</Project>
+      <Name>EditorUtils</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
