@@ -1,45 +1,48 @@
 param ( [switch]$push = $false, 
         [switch]$fast = $false,
-        [switch]$skipTests = $false)
-$script:scriptPath = split-path -parent $MyInvocation.MyCommand.Definition 
-pushd $scriptPath
+        [switch]$skipTests = $false, 
+        [string]$vsDir = "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise")
 
-function test-return() {
-    if ($LASTEXITCODE -ne 0) {
-        return $false
-    }
-    else { 
-        return $true
-    }
+Set-StrictMode -version 2.0
+$ErrorActionPreference="Stop"
+
+function Create-Directory([string]$dir) {
+    [IO.Directory]::CreateDirectory($dir) | Out-Null
 }
 
-function check-return() {
-    if (-not (test-return)) { 
-        write-error "Command failed with code $LASTEXITCODE"
-    }
+# Handy function for executing a command in powershell and throwing if it 
+# fails.  
+#
+# Use this when the full command is known at script authoring time and 
+# doesn't require any dynamic argument build up.  Example:
+#
+#   Exec-Block { & $msbuild Test.proj }
+# 
+# Original sample came from: http://jameskovacs.com/2010/02/25/the-exec-problem/
+function Exec-Block([scriptblock]$cmd) {
+    & $cmd
+
+    # Need to check both of these cases for errors as they represent different items
+    # - $?: did the powershell script block throw an error
+    # - $lastexitcode: did a windows command executed by the script block end in error
+    if ((-not $?) -or ($lastexitcode -ne 0)) {
+        throw "Command failed to execute: $cmd"
+    } 
 }
 
-function build-clean() {
-    param ([string]$fileName = $(throw "Need a project file name"))
-    $name = split-path -leaf $fileName
-    & $msbuild /nologo /verbosity:m /t:Clean /p:Configuration=Release /p:VisualStudioVersion=10.0 $fileName
-    check-return
-    & $msbuild /nologo /verbosity:m /t:Clean /p:Configuration=Debug /p:VisualStudioVersion=10.0 $fileName
-    check-return
+function Build-Clean([string]$fileName) {
+    $name = Split-Path -leaf $fileName
+    Exec-Block { & $msbuild /nologo /verbosity:m /t:Clean /p:Configuration=Release /p:VisualStudioVersion=10.0 $fileName }
+    Exec-Block { & $msbuild /nologo /verbosity:m /t:Clean /p:Configuration=Debug /p:VisualStudioVersion=10.0 $fileName }
 }
 
-function build-release() {
-    param (
-        [string]$fileName = $(throw "Need a project file name"),
-        [string]$editorVersion = $(throw "Need an editor version"))
-
-    $name = split-path -leaf $fileName
-    & $msbuild /nologo /verbosity:q /p:Configuration=Release /p:VisualStudioVersion=10.0 /p:EditorVersion=$editorVersion $fileName
-    check-return
+function Build-Release([string]$fileName, [string]$editorVersion) {
+    $name = Split-Path -leaf $fileName
+    Exec-Block { & $msbuild /nologo /verbosity:q /p:Configuration=Release /p:VisualStudioVersion=10.0 /p:EditorVersion=$editorVersion $fileName }
 }
 
 # Check to see if the given version of Visual Studio is installed
-function test-vs-install() { 
+function Test-VSInstall() { 
     param ([string]$version = $(throw "Need a version"))
 
     if ([IntPtr]::Size -eq 4) { 
@@ -48,155 +51,146 @@ function test-vs-install() {
     else {
         $path = "hklm:\Software\Wow6432Node\Microsoft\VisualStudio\{0}" -f $version
     }
-    $i = get-itemproperty $path InstallDir -ea SilentlyContinue | %{ $_.InstallDir }
+    $i = Get-ItemProperty $path InstallDir -ea SilentlyContinue | %{ $_.InstallDir }
     return $i -ne $null
 }
 
 # Run all of the unit tests
-function test-unittests() { 
-    param ([string]$vsVersion = $(throw "Need a VS version"))
-
-    write-host -NoNewLine "`tRunning Unit Tests: "
-    if ($script:skipTests) { 
-        write-host "skipped"
+function Test-UnitTests([string]$editorVersion, [string]$vsVersion) { 
+    Write-Host -NoNewLine "`tRunning Unit Tests: "
+    if ($skipTests) { 
+        Write-Host "skipped"
         return
     }
 
-    if (-not (test-vs-install $vsVersion)) { 
-        write-host "skipped (VS missing)"
+    if (-not (Test-VSInstall $vsVersion)) { 
+        Write-Host "skipped (VS missing)"
         return
     }
 
-    $all = "Test\EditorUtilsTest\bin\Release\EditorUtils.UnitTest.dll"
-    $xunit = join-path $scriptPath "Tools\xunit.console.clr4.x86.exe"
-    $resultFilePath = "Deploy\xunit.xml"
+    $all = "Binaries\Release\EditorUtilsTest\$($editorVersion)\EditorUtils.UnitTest.dll"
+    $xunit = Join-Path $PSScriptRoot "Tools\xunit.console.clr4.x86.exe"
+    $resultFilePath = Join-Path $deployDir $editorVersion
+    $resultFilePath = Join-Path $resultFilePath "xunit.xml"
 
     foreach ($file in $all) { 
-        $name = split-path -leaf $file
-        & $xunit $file /silent /xml $resultFilePath | out-null
-        if (-not (test-return)) { 
-            write-host "FAILED!!!"
+        $name = Split-Path -leaf $file
+        & $xunit $file /silent /xml $resultFilePath | Out-Null
+        if ((-not $?) -or ($lastexitcode -ne 0)) {
+            Write-Host "FAILED!!!"
             & notepad $resultFilePath
         }
         else { 
-            write-host "passed"
+            Write-Host "passed"
         }
     }
 }
 
 # Get the version number of the package that we are deploying 
-function get-version() { 
+function Get-Version() { 
     $version = $null;
-    foreach ($line in gc "Src\EditorUtils\Constants.cs") {
+    foreach ($line in Get-Content "Src\EditorUtils\Constants.cs") {
         if ($line -match 'AssemblyVersion = "([\d.]*)"') {
             $version = $matches[1]
         }
     }
 
     if ($version -eq $null) {
-        write-error "Couldn't determine the version from Constants.cs"
-        return 
+        throw "Couldn't determine the version from Constants.cs"
     }
 
     if (-not ($version -match "^\d+\.\d+\.\d+.\d+$")) {
-        write-error "Version number in unexpected format"
+        throw "Version number in unexpected format"
     }
 
     return $version
 }
 
 # Do the NuGet work
-function invoke-nuget() {
-    param (
-        [string]$version = $(throw "Need a version number"),
-        [string]$suffix = $(throw "Need a file name suffix"))
+function Invoke-NuGet([string]$editorVersion, [string]$version, [string]$suffix) {
+    Write-Host "`tCreating NuGet Package"
 
-    write-host "`tCreating NuGet Package"
-
-    $scratchPath = "Deploy\Scratch"
-    $libPath = join-path $scratchPath "lib\net40"
-    $outputPath = "Deploy"
-    if (test-path $scratchPath) { 
-        rm -re -fo $scratchPath | out-null
-    }
-    mkdir $libPath | out-null
+    $scratchDir = Join-Path $deployDir $editorVersion
+    $libDir = Join-Path $scratchDir "lib\net40"
+    Create-Directory $scratchDir
+    Create-Directory $libDir
 
     $fileName = "EditorUtils$($suffix)"
-    copy "Src\EditorUtils\bin\Release\$($fileName).dll" (join-path $libPath "$($fileName).dll")
-    copy "Src\EditorUtils\bin\Release\$($fileName).pdb" (join-path $libPath "$($fileName).pdb")
+    Copy-Item "Binaries\Release\EditorUtils\$($editorVersion)\$($fileName).dll" (Join-Path $libDir "$($fileName).dll")
+    Copy-Item "Binaries\Release\EditorUtils\$($editorVersion)\$($fileName).pdb" (Join-Path $libDir "$($fileName).pdb")
 
-    $nuspecFilePath = join-path "Data" "EditorUtils$($suffix).nuspec"
-    & $nuget pack $nuspecFilePath -Version $version -BasePath $scratchPath -OutputDirectory $outputPath | out-null
-    check-return
+    $nuspecFilePath = Join-Path "Data" "EditorUtils$($suffix).nuspec"
+    Exec-Block { & $nuget pack $nuspecFilePath -Version $version -BasePath $scratchDir -OutputDirectory $deployDir } | Out-Null
 
-    if ($script:push) { 
-        write-host "`tPushing Package"
+    if ($push) { 
+        Write-Host "`tPushing Package"
         $name = "EditorUtils$($suffix).$version.nupkg"
-        $packageFile = join-path $outputPath $name
-        & $nuget push $packageFile  | %{ write-host "`t`t$_" }
-        check-return
+        $packageFile = Join-Path $outputPath $name
+        Exec-Block { & $nuget push $packageFile } | Out-Host
     }
 }
 
-function deploy-version() { 
-    param (
-        [string]$editorVersion = $(throw "Need a version number"),
-        [string]$vsVersion = $(throw "Need a VS version"))
-
+function Deploy-Version([string]$editorVersion, [string]$vsVersion) { 
     $suffix = $editorVersion.Substring(2)
-    write-host "Deploying $editorVersion"
+    Write-Host "Deploying $editorVersion"
 
     # First clean the projects
-    write-host "`tCleaning Projects"
-    build-clean Src\EditorUtils\EditorUtils.csproj
-    build-clean Test\EditorUtilsTest\EditorUtilsTest.csproj
+    Write-Host "`tCleaning Projects"
+    Build-Clean Src\EditorUtils\EditorUtils.csproj
+    Build-Clean Test\EditorUtilsTest\EditorUtilsTest.csproj
 
     # Build all of the relevant projects.  Both the deployment binaries and the 
     # test infrastructure
-    write-host "`tBuilding Projects"
-    build-release Src\EditorUtils\EditorUtils.csproj $editorVersion
-    build-release Test\EditorUtilsTest\EditorUtilsTest.csproj $editorVersion
+    Write-Host "`tBuilding Projects"
+    Build-Release Src\EditorUtils\EditorUtils.csproj $editorVersion
+    Build-Release Test\EditorUtilsTest\EditorUtilsTest.csproj $editorVersion
 
-    write-host "`tDetermining Version Number"
-    $version = get-version
+    Write-Host "`tDetermining Version Number"
+    $version = Get-Version
 
     # Next run the tests
-    test-unittests $vsVersion
+    Test-UnitTests $editorVersion $vsVersion
 
     # Now do the NuGet work 
-    invoke-nuget $version $suffix
+    Invoke-NuGet $editorVersion $version $suffix
 }
 
-$msbuild = join-path ${env:SystemRoot} "microsoft.net\framework\v4.0.30319\msbuild.exe"
-if (-not (test-path $msbuild)) {
-    write-error "Can't find msbuild.exe"
+Push-Location $PSScriptRoot
+try {
+
+    $msbuild = Join-Path $vsDir "MSBuild\15.0\Bin\msbuild.exe"
+    if (-not (Test-Path $msbuild)) {
+        Write-Host "Can't find msbuild.exe"
+        exit 1
+    }
+
+    $deployDir = Join-Path $PSScriptRoot "Binaries\Deploy"
+
+    $nuget = Resolve-Path ".nuget\NuGet.exe"
+    if (-not (Test-Path $nuget)) { 
+        Write-Host "Can't find NuGet.exe"
+        exit 1
+    }
+
+    if ($fast) {
+        Deploy-Version "Vs2010" "10.0"
+    }
+    else { 
+        Deploy-Version "Vs2010" "10.0"
+        Deploy-Version "Vs2012" "11.0" 
+        Deploy-Version "Vs2013" "12.0"
+        Deploy-Version "Vs2015" "14.0"
+        Deploy-Version "Vs2017" "15.0"
+    }
+}
+catch { 
+    Write-Host $_.ScriptStackTrace
+    Write-Host $_
+    Write-Host "Failed"
+    exit 1
+}
+finally {
+    Pop-Location
 }
 
-# Several of the projects involved use NuGet and the resulting .csproj files 
-# rely on the SolutionDir MSBuild property being set.  Hence we set the appropriate
-# environment variable for build
-${env:SolutionDir} = $scriptPath
-
-if (-not (test-path "Deploy")) {
-    mkdir Deploy | out-null
-}
-
-$nuget = resolve-path ".nuget\NuGet.exe"
-if (-not (test-path $nuget)) { 
-    write-error "Can't find NuGet.exe"
-}
-
-if ($fast) {
-    deploy-version "Vs2010" "10.0"
-}
-else { 
-    deploy-version "Vs2010" "10.0"
-    deploy-version "Vs2012" "11.0" 
-    deploy-version "Vs2013" "12.0"
-    deploy-version "Vs2015" "14.0"
-}
-
-rm env:\SolutionDir
-
-popd
 

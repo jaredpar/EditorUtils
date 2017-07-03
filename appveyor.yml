@@ -1,4 +1,9 @@
 
+image: Visual Studio 2017
+
+environment:
+    VisualStudioVersion: 15.0
+
 # Branchs to build
 branches:
   only:
@@ -6,10 +11,14 @@ branches:
 
 configuration: Debug
 
+before_build: 
+  # Updates the version number in the .vsixmanifest and updates the AppVeyor build number to match
+  - nuget restore EditorUtils.sln
+
 build:
   project: EditorUtils.sln
   verbosity: minimal
 
 test_script:
-      - Tools\xunit.console.clr4.x86.exe Test\EditorUtilsTest\bin\Debug\EditorUtils.UnitTest.dll /silent
+      - Tools\xunit.console.clr4.x86.exe Binaries\Debug\EditorUtilsTest\Vs2017\EditorUtils.UnitTest.dll /silent
 

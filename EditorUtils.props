@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <PropertyGroup Condition="'$(EditorVersion)' == ''">
+    <EditorVersion Condition="'$(VisualStudioVersion)' == '10.0'">Vs2010</EditorVersion>
+    <EditorVersion Condition="'$(VisualStudioVersion)' == '11.0'">Vs2012</EditorVersion>
+    <EditorVersion Condition="'$(VisualStudioVersion)' == '12.0'">Vs2013</EditorVersion>
+    <EditorVersion Condition="'$(VisualStudioVersion)' == '14.0'">Vs2015</EditorVersion>
+    <EditorVersion Condition="'$(VisualStudioVersion)' == '15.0'">Vs2017</EditorVersion>
+
+    <!-- Fall back for a standard build -->
+    <EditorVersion Condition="'$(EditorVersion)' == ''">Vs2010</EditorVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <RepoPath>$(MSBuildThisFileDirectory)</RepoPath>
+    <BinariesPath>$(RepoPath)Binaries\</BinariesPath>
+    <BaseIntermediateOutputPath>$(BinariesPath)obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <BaseOutputPath Condition="'$(BaseOutputPath)' == ''">$(BinariesPath)</BaseOutputPath>
+    <OutputPath>$(BinariesPath)$(Configuration)\$(MSBuildProjectName)</OutputPath>
+    <EditorUtilsAppConfig>$(MSBuildThisFileDirectory)References\$(EditorVersion)\App.config</EditorUtilsAppConfig>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2010</ReferencePath>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2012</ReferencePath>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2013</ReferencePath>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2015</ReferencePath>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2017</ReferencePath>
+    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Common</ReferencePath>
+    <SolutionDir>$(RepoPath)</SolutionDir>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(RepoPath)\Key.snk</AssemblyOriginatorKeyFile>
+    <DelaySign>false</DelaySign>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2010' ">
+    <EditorSuffix>2010</EditorSuffix>
+    <EditorAssemblyVersion>10.0.0.0</EditorAssemblyVersion>
+    <TargetFrameworkVersion>4.0</TargetFrameworkVersion>
+    <DefineConstants>$(DefineConstants);VS2010</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2012' ">
+    <EditorSuffix>2012</EditorSuffix>
+    <EditorAssemblyVersion>11.0.0.0</EditorAssemblyVersion>
+    <TargetFrameworkVersion>4.5</TargetFrameworkVersion>
+    <DefineConstants>$(DefineConstants);VS2012</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2013' ">
+    <EditorSuffix>2013</EditorSuffix>
+    <EditorAssemblyVersion>12.0.0.0</EditorAssemblyVersion>
+    <TargetFrameworkVersion>4.5</TargetFrameworkVersion>
+    <DefineConstants>$(DefineConstants);VS2013</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2015' ">
+    <EditorSuffix>2015</EditorSuffix>
+    <EditorAssemblyVersion>14.0.0.0</EditorAssemblyVersion>
+    <TargetFrameworkVersion>4.5</TargetFrameworkVersion>
+    <DefineConstants>$(DefineConstants);VS2015</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(EditorVersion)' == 'Vs2017' ">
+    <EditorSuffix>2017</EditorSuffix>
+    <EditorAssemblyVersion>15.0.0.0</EditorAssemblyVersion>
+    <TargetFrameworkVersion>4.6</TargetFrameworkVersion>
+    <DefineConstants>$(DefineConstants);VS2017</DefineConstants>
+  </PropertyGroup>
+
+  <!-- AppVeyor specific settings -->
+  <PropertyGroup Condition=" '$(AppVeyor)' != ''">
+    <!-- Do not deploy any VSIX outputs -->
+    <DeployExtension>False</DeployExtension>
+  </PropertyGroup>
+</Project>

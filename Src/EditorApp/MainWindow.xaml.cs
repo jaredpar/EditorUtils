@@ -25,7 +25,12 @@ namespace EditorApp
         {
             InitializeComponent();
 
-            var editorHostFactory = new EditorHostFactory(EditorVersion.Vs2015);
+            var editorHostFactory = new EditorHostFactory(EditorVersion.Vs2017);
+            CreateContent(editorHostFactory);
+        }
+
+        private void CreateContent(EditorHostFactory editorHostFactory)
+        {
             var editorHost = editorHostFactory.CreateEditorHost();
 
             var textBuffer = editorHost.TextBufferFactoryService.CreateTextBuffer();
