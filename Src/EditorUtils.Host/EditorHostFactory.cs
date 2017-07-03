@@ -124,7 +124,7 @@ namespace EditorUtils
         {
             if (vsVersion.Major >= 15)
             {
-                var qualifiedName = string.Format("EditorUtils.Vs2017, Version={0}, Culture=neutral, PublicKeyToken={1}, processorArchitecture=MSIL", Constants.AssemblyVersion, Constants.PublicKeyToken);
+                var qualifiedName = string.Format("EditorUtils.Host.Vs2017, Version={0}, Culture=neutral, PublicKeyToken={1}, processorArchitecture=MSIL", Constants.AssemblyVersion, Constants.PublicKeyToken);
                 var assembly = Assembly.Load(qualifiedName);
                 _composablePartCatalogList.Add(new AssemblyCatalog(assembly));
 
